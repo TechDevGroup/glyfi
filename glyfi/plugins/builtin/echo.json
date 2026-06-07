@@ -1,0 +1,20 @@
+{
+  "plugin": "echo-reference",
+  "commands": [
+    {
+      "name": "echo",
+      "description": "echo the given text into the content view",
+      "handler": "glyfi.plugins.refplugin:echo_handler",
+      "args": {
+        "positionals": [
+          {"name": "text", "required": true, "rest": true}
+        ]
+      }
+    },
+    {
+      "name": "ping",
+      "description": "push a pong status (an arg-less reference command)",
+      "handler": "glyfi.plugins.refplugin:ping_handler"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# echo/ping reference plugin -- the safe-YAML-subset twin of echo.json.
+plugin: echo-fixture
+commands:
+  - name: echo
+    description: echo the given text into the content view
+    handler: glyfi.plugins.refplugin:echo_handler
+    args:
+      positionals:
+        - name: text
+          required: true
+          rest: true
+  - name: ping
+    description: push a pong status
+    handler: glyfi.plugins.refplugin:ping_handler

@@ -1,0 +1,142 @@
+glyfi Source-Available License, Version 1.0
+
+Copyright (c) 2026 Landan Parker <landanparker@gmail.com>
+
+This is a source-available license. It is NOT an Open Source Initiative (OSI)
+approved open-source license and it is NOT the MIT, BSD, Apache, or GPL license.
+Please read it in full. By using, copying, modifying, or distributing the
+Software, You agree to the terms below.
+
+
+1. DEFINITIONS
+
+   1.1 "Software" means the glyfi software, including its source code, object or
+   compiled code, configuration, documentation, and any files distributed under
+   this License by the copyright holder.
+
+   1.2 "You" (or "Your") means the individual or legal entity exercising the
+   rights granted under this License. If You act on behalf of an entity, "You"
+   includes that entity and all entities that control, are controlled by, or are
+   under common control with it.
+
+   1.3 "Author" means Landan Parker, the copyright holder identified above, and
+   any successor in interest to the copyright in the Software.
+
+   1.4 "Core" means the substantive core components and architecture of the
+   Software that form a primary basis of a product or service. This includes,
+   without limitation, the framework's overall design and the principal modules
+   that implement it, taken alone or together with insubstantial modifications.
+   Plugins, modules, extensions, configuration, and other works that build on top
+   of the Software through its documented extension points are NOT, by themselves,
+   the Core.
+
+   1.5 "Derivative Work" means any work that is based on, derived from, adapts,
+   transforms, translates, stripts down, or otherwise modifies the Software, in
+   whole or in part, in source or compiled form.
+
+   1.6 "Commercialize" means to sell, license for a fee, offer as a paid hosted,
+   managed, or software-as-a-service (SaaS) offering, or otherwise derive direct
+   commercial revenue that is primarily attributable to the Core. Charging for
+   independent products, plugins, integrations, support, or services that are not
+   primarily attributable to the Core is not, by itself, Commercializing the Core.
+
+
+2. GRANT OF RIGHTS
+
+   Subject to the Conditions in Section 3 and the other terms of this License, the
+   Author hereby grants You a perpetual, worldwide, non-exclusive, royalty-free,
+   and revocable (only as provided in Section 4) right to:
+
+   (a) use, run, and study the Software for any lawful purpose;
+
+   (b) reproduce the Software;
+
+   (c) modify the Software and create Derivative Works of it;
+
+   (d) strip down, refactor, or otherwise adapt the Software; and
+
+   (e) redistribute the Software and Derivative Works, in source or compiled form.
+
+
+3. CONDITIONS
+
+   The rights granted in Section 2 are conditioned on Your compliance with all of
+   the following:
+
+   3.1 Attribution (MANDATORY). You must:
+
+       (a) retain, in all copies and in any substantial portion of the Software or
+       a Derivative Work, the copyright notice above and a complete, unmodified
+       copy of this License; and
+
+       (b) give clear, reasonable credit to the original author, Landan Parker, in
+       the source code AND in any user-facing documentation, "about" screen, or
+       notices of any Derivative Work, in a manner reasonably prominent for that
+       medium.
+
+   3.2 Commercial Use of the Core Requires Prior Written Permission. You must
+   obtain the Author's prior written consent BEFORE You Commercialize the Core. To
+   request permission, contact landanparker@gmail.com. For clarity, the following
+   do NOT require permission, provided the Attribution condition in Section 3.1 is
+   met: ordinary use; internal use within Your organization; research and
+   evaluation; and building, distributing, or selling plugins, modules, or
+   extensions on top of the Software through its documented extension points.
+
+   3.3 Preservation of Notices and Origin. You must not remove, alter, or obscure
+   any copyright, attribution, license, or other legal notices in the Software, and
+   You must not misrepresent the origin of the Software or imply endorsement by the
+   Author without permission.
+
+
+4. TERMINATION
+
+   4.1 Your rights under this License terminate automatically if You materially
+   breach any of its terms and fail to cure that breach within a reasonable period
+   (and in any event within thirty (30) days) after becoming aware of it.
+
+   4.2 If the breach is cured within that period, Your rights under this License
+   are reinstated as of the date the breach is cured, without prejudice to any
+   other rights or remedies of the Author.
+
+   4.3 Sections 1, 5, 6, and 7, and any accrued obligations, survive termination.
+
+
+5. DISCLAIMER OF WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
+   KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+   THE AUTHOR DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE, SECURE, OR
+   UNINTERRUPTED, OR THAT IT WILL MEET YOUR REQUIREMENTS. THE ENTIRE RISK AS TO THE
+   QUALITY AND PERFORMANCE OF THE SOFTWARE IS WITH YOU.
+
+
+6. LIMITATION OF LIABILITY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE AUTHOR
+   BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+   CONSEQUENTIAL DAMAGES (INCLUDING BUT NOT LIMITED TO PROCUREMENT OF SUBSTITUTE
+   GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION),
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE), ARISING IN ANY WAY OUT OF
+   THE USE OF OR INABILITY TO USE THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+   OF SUCH DAMAGE.
+
+
+7. GENERAL
+
+   7.1 This License does not grant permission to use the trade names, trademarks,
+   service marks, or product names of the Author, except as required for
+   reasonable and customary use in describing the origin of the Software and
+   reproducing the content of the Attribution notice.
+
+   7.2 If any provision of this License is held unenforceable, that provision shall
+   be enforced to the maximum extent permissible, and the remaining provisions
+   shall remain in full force and effect.
+
+
+SEPARATE COMMERCIAL TERMS
+
+   The Author may grant separate commercial terms, including permission to
+   Commercialize the Core, on request. To discuss commercial licensing, contact
+   Landan Parker at landanparker@gmail.com.

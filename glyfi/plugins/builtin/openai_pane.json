@@ -1,0 +1,21 @@
+{
+  "plugin": "openai-context-pane",
+  "widgets": [
+    {
+      "name": "openai_pane",
+      "factory": "glyfi.contrib.openai_pane.widget:OpenAIPaneWidget"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ask",
+      "description": "open the OpenAI context pane (optionally seeded with a first prompt)",
+      "handler": "glyfi.contrib.openai_pane.plugin:ask_handler",
+      "args": {
+        "positionals": [
+          {"name": "text", "required": false, "rest": true}
+        ]
+      }
+    }
+  ]
+}
