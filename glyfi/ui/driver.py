@@ -25,7 +25,7 @@ from typing import List, Optional, Type
 from glyfi.ui.clock import VirtualClock
 from glyfi.ui.events import Event, KeyPressed, CommandInvoked, Tick
 from glyfi.ui.keymap import dispatch_key
-from glyfi.ui.view import HeadlessView, Painting, RegionPainter
+from glyfi.ui.view import HeadlessView, Painting, RegionPainter, compose_frame
 from glyfi.ui.viewmodel import AppViewModel, UI_PALETTE, UI_PROMPT
 from glyfi.ui.settings import REGION_INPUT
 
@@ -132,6 +132,14 @@ class AppDriver:
         WITHOUT reaching into any private attribute.
         """
         return self.painting, self.layout, self.size
+
+    def frame_text(self) -> List[str]:
+        """The current frame composed into the full-screen grid rows (every region placed at its ``Rect``).
+
+        A pure read: delegates to the CORE ``compose_frame`` over the latest ``(painting, layout, size)`` -- the
+        exact full rectangle a terminal would show, blank-filled in the gaps and padded to the synthetic width.
+        """
+        return compose_frame(*self.frame())
 
     def region(self, name: str) -> List[str]:
         """The painted lines of region ``name`` in the current frame."""

@@ -75,6 +75,34 @@ def test_frame_seam_returns_usable_painting_layout_size():
     assert size is d.size is d.view.size
 
 
+def test_frame_text_composes_the_full_screen_grid():
+    """``frame_text()`` returns the full composed frame -- one row per terminal row, each padded to the width."""
+    from glyfi.ui.view import compose_frame
+
+    d, _ = _driver(w=80, h=24)
+    rows = d.frame_text()
+    # one row per terminal row, every row exactly the synthetic width
+    assert len(rows) == 24
+    assert all(len(r) == 80 for r in rows)
+    # delegates to the SAME core composer over the current frame triple
+    assert rows == compose_frame(*d.frame())
+    # the painted title text lands somewhere in the composed grid (regions placed at their Rect)
+    assert any(d.region('title')[0] in r for r in rows)
+
+
+def test_compose_frame_places_regions_and_blank_fills_gaps():
+    """``compose_frame`` is the pure core composer -- region lines at their Rect origin, gaps blank-filled."""
+    from glyfi.ui.layout import Rect, Size
+    from glyfi.ui.view import Painting, compose_frame
+
+    painting = Painting(regions={'a': ['hi'], 'b': ['XY']})
+    layout = {'a': Rect(x=1, y=0, w=4, h=1), 'b': Rect(x=0, y=2, w=4, h=1)}
+    size = Size(w=5, h=3)
+    rows = compose_frame(painting, layout, size)
+    assert rows == [' hi  ', '     ', 'XY   ']
+    assert all(len(r) == 5 for r in rows)
+
+
 def test_status_has_its_own_region_above_the_input_fence():
     d, _ = _driver()
     status_rect = d.view.layout[REGION_STATUS]

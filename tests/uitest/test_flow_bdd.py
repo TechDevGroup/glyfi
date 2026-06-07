@@ -32,6 +32,25 @@ def test_flow_passes_and_records_trace():
     assert res.trace[0].step.startswith('Press')
 
 
+def test_trace_entry_carries_the_full_composed_frame_per_step():
+    """Each recorded step carries the full composed frame (additive, presentation-only) -- a real screenshot."""
+    res = (U.Flow('frame-per-step')
+           .given(U.fresh_app())
+           .when(U.Press('/'), U.Type('co'))
+           .then(U.mode_is('PALETTE'))
+           .run())
+    assert len(res.trace) == 2
+    for entry in res.trace:
+        # the frame is an immutable tuple of rows -- a clean rectangle (every row the same width)
+        assert isinstance(entry.frame, tuple)
+        assert entry.frame                                     # non-empty: the full screen was captured
+        widths = {len(r) for r in entry.frame}
+        assert len(widths) == 1                                # padded to a constant width
+    # the frame is presentation-only: it carries the painted region text the constraints also saw
+    palette_step = res.trace[0]
+    assert any(palette_step.probe.regions['title'][0] in r for r in palette_step.frame)
+
+
 def test_flow_fail_carries_located_violation_and_trace():
     res = (U.Flow('bad-expectation')
            .given(U.fresh_app())

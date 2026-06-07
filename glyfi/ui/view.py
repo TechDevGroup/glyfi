@@ -23,7 +23,7 @@ The painter renders each NAMED fenced region from VM/Model state:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional, Tuple
-from glyfi.ui.layout import Rect
+from glyfi.ui.layout import Rect, Size
 from glyfi.ui.settings import (
     REGION_TITLE, REGION_STATE, REGION_HEADER_RULE, REGION_CONTENT, REGION_STATUS, REGION_INPUT_RULE,
     REGION_INPUT, REGION_STATUS_RULE, REGION_DETAILS, RULE_CHAR, INPUT_PROMPT, SLOT_SEP, DETAILS_GROUP_SEP,
@@ -66,6 +66,34 @@ class Painting:
     def role(self, region: str) -> str:
         """The semantic theme role for a region's text (default NORMAL) -- the curses View maps it to an attr."""
         return self.region_roles.get(region, theme.ROLE_NORMAL)
+
+
+FRAME_BLANK_CELL = ' '          # the fill character for gaps and right-padding (one screen cell)
+
+
+def compose_frame(painting: 'Painting', layout: Dict[str, Rect], size: Size) -> List[str]:
+    """Compose the EXACT full-screen grid -- every region's lines placed at its ``Rect`` (x, y), gaps blank-filled.
+
+    The pure CORE composer of a full frame: builds a ``size.h`` x ``size.w`` grid of blank cells, then stamps
+    each region's painted lines into the rows starting at its rect origin (clipping to the rect's width/height so
+    a region never bleeds past its placement). Every row is padded to ``size.w`` so the result is a clean
+    rectangle -- exactly what a terminal would show. Regions absent from the layout (or the painting) leave their
+    area blank. Deterministic; no terminal dependency -- the same painting/layout/size always yields the same rows.
+    """
+    grid: List[List[str]] = [[FRAME_BLANK_CELL] * size.w for _ in range(size.h)]
+    for region, rect in layout.items():
+        lines = painting.lines(region)
+        for dy in range(rect.h):
+            row_index = rect.y + dy
+            if not (0 <= row_index < size.h) or dy >= len(lines):
+                continue
+            text = lines[dy]
+            for dx, ch in enumerate(text):
+                col = rect.x + dx
+                if dx >= rect.w or not (0 <= col < size.w):
+                    break
+                grid[row_index][col] = ch
+    return [''.join(row) for row in grid]
 
 
 def _clip_line(text: str, width: int) -> str:

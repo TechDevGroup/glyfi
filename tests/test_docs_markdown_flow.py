@@ -45,18 +45,46 @@ def test_flow_to_markdown_embeds_region_state_between_steps():
     assert md.count('~~~') >= 6                        # >= 2 fence delimiters * 3 steps
 
 
+def test_flow_to_markdown_full_frame_emits_one_full_frame_fence_per_step():
+    result = _run_flow().run()
+    md = flow_to_markdown(result, full_frame=True)
+    # default is full-frame: one fence per step (3 steps) and each is a TRUE full screenshot, NOT stacked regions
+    headings = [ln for ln in md.split('\n') if ln.startswith('## ')]
+    assert len(headings) == 3
+    # exactly one opening + one closing fence delimiter per step -> 2 per step
+    assert md.count('~~~text') == 3
+    # the full frame shows the whole UI -- the stacked-region in-fence labels are NOT present
+    assert '── content ──' not in md
+    assert '── title ──' not in md
+    # and the rule fences (full-width region rules) appear -- proof it is the composed full screen, not regions
+    assert '────────' in md
+
+
+def test_flow_to_markdown_full_frame_is_the_default():
+    result = _run_flow().run()
+    assert flow_to_markdown(result) == flow_to_markdown(result, full_frame=True)
+
+
+def test_flow_to_markdown_full_frame_off_falls_back_to_stacked_regions():
+    result = _run_flow().run()
+    md = flow_to_markdown(result, full_frame=False)
+    # the legacy stacked-region rendering -- the in-fence region labels are back
+    assert '── content ──' in md
+    assert '── input ──' in md
+
+
 def test_flow_to_markdown_narrows_to_requested_regions():
     result = _run_flow().run()
-    md = flow_to_markdown(result, regions=['input'])
+    md = flow_to_markdown(result, regions=['input'], full_frame=False)
     # only the input region is stacked -- the in-fence region label names it
     assert '── input ──' in md
     assert '── content ──' not in md
 
 
-def test_pertinent_regions_is_the_default_set():
+def test_pertinent_regions_is_the_default_set_for_the_stacked_fallback():
     result = _run_flow().run()
-    md = flow_to_markdown(result)
-    # at least one of the pertinent regions is labeled in the output
+    # the pertinent set governs the STACKED fallback (full_frame off / no frame); at least one region is labeled
+    md = flow_to_markdown(result, full_frame=False)
     assert any(f'── {r} ──' in md for r in PERTINENT_REGIONS)
 
 

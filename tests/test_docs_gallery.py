@@ -58,3 +58,20 @@ def test_walkthrough_does_not_leak_real_cwd():
     abbreviated = _home_abbreviated(real_cwd)
     if abbreviated is not None:
         assert abbreviated not in out
+
+
+def test_walkthrough_renders_a_full_frame_screenshot_per_step():
+    out = build_walkthrough()
+    # one section per step (3 when-steps), each a full-screen fence (not stacked pertinent-region labels)
+    headings = [ln for ln in out.split('\n') if ln.startswith('## ')]
+    assert len(headings) == 3
+    assert out.count('~~~text') == 3
+    assert '── content ──' not in out        # full frame, not the stacked-region labels
+    # it is the composed full screen -- the full-width region rules are present
+    assert '────────' in out
+
+
+def test_walkthrough_carries_neutral_placeholders_and_no_real_time():
+    out = build_walkthrough()
+    assert DETERMINISTIC_CWD in out
+    assert DETERMINISTIC_LOCALTIME in out

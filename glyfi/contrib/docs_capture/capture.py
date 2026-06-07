@@ -20,7 +20,7 @@ from typing import Dict, List, Optional
 
 from glyfi.ui.driver import AppDriver
 from glyfi.ui.layout import Rect, Size
-from glyfi.ui.view import Painting, View
+from glyfi.ui.view import Painting, View, compose_frame
 from glyfi.ui.viewmodel import AppViewModel
 
 # ---- NAMED fill / pad literals (no bare space/char at a compose site) --------------------------------------
@@ -64,25 +64,11 @@ def pad_block(rows: List[str], width: Optional[int] = None) -> List[str]:
 def frame_rows(painting: Painting, layout: Dict[str, Rect], size: Size) -> List[str]:
     """Compose the EXACT full-screen grid -- every region's lines placed at its ``Rect`` (x, y), gaps blank-filled.
 
-    Deterministic: builds a ``size.h`` x ``size.w`` grid of blank cells, then stamps each region's painted lines
-    into the rows starting at its rect origin (clipping to the rect's width/height so a region never bleeds past
-    its placement). Every row is padded to ``size.w`` so the result is a clean rectangle -- what the terminal
-    would show. Regions absent from the layout (or the painting) simply leave their area blank.
+    DELEGATES to the CORE ``compose_frame`` (``glyfi.ui.view``) -- the single composition source of truth -- so
+    contrib does not duplicate the placement logic. Kept as the public contrib name for existing imports/tests.
+    Deterministic: the same painting/layout/size always yields the same full rectangle the terminal would show.
     """
-    grid: List[List[str]] = [[BLANK_CELL] * size.w for _ in range(size.h)]
-    for region, rect in layout.items():
-        lines = painting.lines(region)
-        for dy in range(rect.h):
-            row_index = rect.y + dy
-            if not (0 <= row_index < size.h) or dy >= len(lines):
-                continue
-            text = lines[dy]
-            for dx, ch in enumerate(text):
-                col = rect.x + dx
-                if dx >= rect.w or not (0 <= col < size.w):
-                    break
-                grid[row_index][col] = ch
-    return [''.join(row) for row in grid]
+    return compose_frame(painting, layout, size)
 
 
 def region_rows(painting: Painting, region: str) -> List[str]:

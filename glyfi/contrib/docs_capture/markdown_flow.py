@@ -1,14 +1,15 @@
 """markdown_flow -- a BDD flow TRACE -> a per-step Markdown document (UI state embedded between steps).
 
-A ``Flow`` records a ``TraceEntry`` per ``when`` step: the verb label + the ``Probe`` snapshot taken right after
-that step drove the app. This bridge turns that trace into a Markdown walkthrough -- ONE section per step, each
-with a heading (the step label) and a screen fence of the pertinent regions, so the reader sees what the UI
-showed BETWEEN the steps (the "embed the scenario state between steps" goal).
+A ``Flow`` records a ``TraceEntry`` per ``when`` step: the verb label + the ``Probe`` snapshot AND the full
+composed screen frame, both taken right after that step drove the app. This bridge turns that trace into a
+Markdown walkthrough -- ONE section per step, each with a heading (the step label) and a screen fence, so the
+reader sees what the UI showed BETWEEN the steps (the "embed the scenario state between steps" goal).
 
-The stored ``Probe`` carries the painted region LINES but NOT full screen geometry (no layout/size -- it is a
-constraint read model, not a frame). So a step's screen is rendered as the pertinent regions STACKED, each
-clearly labeled, padded to a constant width, and wrapped in one screen fence. This is the cleanest faithful
-thing the Probe shape supports -- it shows exactly the region text the constraints saw.
+By default (``full_frame=True``) each step's section is a TRUE full-frame screenshot of the WHOLE UI -- the
+composed full-screen grid the ``TraceEntry`` carries (the same rows a terminal would show). When ``full_frame``
+is off, or for a step with no recorded frame, the bridge falls back to the pertinent regions STACKED -- each
+clearly labeled, padded to a constant width, and wrapped in one screen fence (the region text the constraints
+saw). The frame is presentation-only and additive; constraints never read it.
 
 Self-contained: ``capture`` + ``glyfi.uitest`` types (``FlowResult`` / ``RunContext`` / ``TraceEntry`` / ``Probe``)
 + stdlib only. No network, no curses, no app mutation.
@@ -64,20 +65,33 @@ def _probe_screen_rows(probe: Probe, regions: Sequence[str]) -> List[str]:
     return pad_block(rows)
 
 
-def _step_section(index: int, entry: TraceEntry, regions: Sequence[str], border: bool) -> str:
-    """One step's Markdown section -- a heading (ordinal + label) + a screen fence of the pertinent regions."""
+def _step_section(index: int, entry: TraceEntry, regions: Sequence[str], border: bool, full_frame: bool) -> str:
+    """One step's Markdown section -- a heading (ordinal + label) + a screen fence.
+
+    When ``full_frame`` is set AND the step recorded a composed full frame, the fence is a single TRUE screenshot
+    of the whole UI (the full-screen grid). Otherwise it falls back to the pertinent regions STACKED -- exactly
+    the prior behaviour (the cleanest faithful thing the Probe alone supports).
+    """
     heading = f'{STEP_HEADING}{index}{STEP_NUMBER_SEP}{entry.step}'
-    rows = _probe_screen_rows(entry.probe, regions)
+    if full_frame and entry.frame:
+        rows = list(entry.frame)
+    else:
+        rows = _probe_screen_rows(entry.probe, regions)
     fence = screen_fence(rows, border=border, title=f'mode:{entry.probe.mode_ui}')
     return f'{heading}\n\n{fence}'
 
 
 def flow_to_markdown(source, *, title: Optional[str] = None, intro: Optional[str] = None,
-                     regions: Optional[Sequence[str]] = None, border: bool = True) -> str:
+                     regions: Optional[Sequence[str]] = None, border: bool = True,
+                     full_frame: bool = True) -> str:
     """Render a flow's recorded trace as a per-step Markdown walkthrough -- UI state embedded between steps.
 
     ``source`` is a ``FlowResult`` or a ``RunContext`` (whatever carries the per-step trace). For EACH recorded
-    step a section is emitted: a heading from the step label + a screen fence of the pertinent regions (the full
+    step a section is emitted: a heading from the step label + a screen fence of that step's UI state.
+
+    ``full_frame`` (default True): when the step recorded a composed full frame (``TraceEntry.frame``), the
+    section shows a TRUE full-frame screenshot of the WHOLE UI -- a real screenshot between steps. When False, or
+    when no frame was recorded for a step, the section falls back to the pertinent regions STACKED (the full
     ``PERTINENT_REGIONS`` set when ``regions`` is None, else just those). An optional ``title`` becomes the doc
     heading and ``intro`` a lead paragraph. Deterministic; pure string assembly.
     """
@@ -91,7 +105,7 @@ def flow_to_markdown(source, *, title: Optional[str] = None, intro: Optional[str
     if not entries:
         blocks.append('_(the flow recorded no steps)_')
     for i, entry in enumerate(entries, start=1):
-        blocks.append(_step_section(i, entry, pertinent, border))
+        blocks.append(_step_section(i, entry, pertinent, border, full_frame))
     return '\n\n'.join(blocks) + '\n'
 
 

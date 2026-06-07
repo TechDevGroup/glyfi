@@ -6,13 +6,9 @@ A small BDD flow (open the palette -> type a filter -> open the config editor) r
 
 ~~~text
 ┌─ mode:PALETTE ───────────────────────────────────────────────────────────────────┐
-│ ── title ──                                                                      │
 │ glyfi  [mode:chat]  › palette  · Esc: close palette -> NORMAL                    │
-│                                                                                  │
-│ ── state ──                                                                      │
 │ uitest-1                 0                chat                -                0 │
-│                                                                                  │
-│ ── content ──                                                                    │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │ ▸ /prompt                     walk exactly one turn (prompts for subject + text) │
 │   /clear                            clear the content view / stick to the newest │
 │   /config                                     open the traversable config editor │
@@ -25,13 +21,14 @@ A small BDD flow (open the palette -> type a filter -> open the config editor) r
 │   /ping                       push a pong status (an arg-less reference command) │
 │   /ask      open the OpenAI context pane (optionally seeded with a first prompt) │
 │                                                                                  │
-│ ── status ──                                                                     │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
 │ palette -- Up/Down to navigate, Enter to run, type to filter, Esc to cancel      │
-│                                                                                  │
-│ ── input ──                                                                      │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │  > /                                                                             │
-│                                                                                  │
-│ ── details ──                                                                    │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │ working dir ~/glyfi                                          local time 00:00:00 │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ~~~
@@ -40,22 +37,29 @@ A small BDD flow (open the palette -> type a filter -> open the config editor) r
 
 ~~~text
 ┌─ mode:PALETTE ───────────────────────────────────────────────────────────────────┐
-│ ── title ──                                                                      │
 │ glyfi  [mode:chat]  › palette  · Esc: close palette -> NORMAL                    │
-│                                                                                  │
-│ ── state ──                                                                      │
 │ uitest-1                 0                chat                -                0 │
-│                                                                                  │
-│ ── content ──                                                                    │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │ ▸ /config                                     open the traversable config editor │
 │                                                                                  │
-│ ── status ──                                                                     │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
 │ palette -- Up/Down to navigate, Enter to run, type to filter, Esc to cancel      │
-│                                                                                  │
-│ ── input ──                                                                      │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │  > /co                                                                           │
-│                                                                                  │
-│ ── details ──                                                                    │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │ working dir ~/glyfi                                          local time 00:00:00 │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ~~~
@@ -64,13 +68,9 @@ A small BDD flow (open the palette -> type a filter -> open the config editor) r
 
 ~~~text
 ┌─ mode:CONFIG ────────────────────────────────────────────────────────────────────┐
-│ ── title ──                                                                      │
 │ glyfi  [mode:chat]  › config  · Esc: back / close config -> NORMAL               │
-│                                                                                  │
-│ ── state ──                                                                      │
 │ uitest-1                 0                chat                -                0 │
-│                                                                                  │
-│ ── content ──                                                                    │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │   -- CONFIG (↑↓ move · Enter edit · Esc/← back) --                               │
 │ ▸ state[0] = session                                                             │
 │   state[1] = seq                                                                 │
@@ -84,13 +84,13 @@ A small BDD flow (open the palette -> type a filter -> open the config editor) r
 │   pgup/pgdn overlap (rows): 3                                                    │
 │   status TTL (seconds): 4.0                                                      │
 │                                                                                  │
-│ ── status ──                                                                     │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
 │ config -- arrows move (area highlights), Enter to rebind, Esc to exit            │
-│                                                                                  │
-│ ── input ──                                                                      │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │  > /co                                                                           │
-│                                                                                  │
-│ ── details ──                                                                    │
+│ ──────────────────────────────────────────────────────────────────────────────── │
 │ working dir ~/glyfi                                          local time 00:00:00 │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ~~~
