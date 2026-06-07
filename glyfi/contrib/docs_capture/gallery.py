@@ -13,19 +13,12 @@ flow / fixture seams + stdlib.
 from typing import List, Tuple
 
 from glyfi.contrib.docs_capture.capture import markdown_screen
+from glyfi.contrib.docs_capture.detfields import (
+    DETERMINISTIC_CWD, DETERMINISTIC_LOCALTIME, pin_deterministic_fields,
+)
 from glyfi.contrib.docs_capture.markdown_flow import flow_to_markdown
 from glyfi.plugins import palette as palette_mod
-from glyfi.ui import fields as fields_mod
 from glyfi.ui.settings import REGION_CONTENT
-
-# ---- NAMED deterministic detail-field placeholders (committed docs must be reproducible) -------------------
-# The committed artifacts must carry NO machine-specific path and NO real wall clock. The two live detail
-# fields -- the working dir (cwd) and the local time -- are therefore PINNED to fixed neutral values for the
-# capture run only. This module owns that deterministic presentation; normal runtime is untouched (a real user
-# still sees their own cwd/time -- the override is applied here, in the gallery, not in the field registry's
-# defaults).
-DETERMINISTIC_CWD = '~/glyfi'        # neutral placeholder -- not the real cwd, no machine path
-DETERMINISTIC_LOCALTIME = '00:00:00'  # fixed clock -- reproducible across runs
 
 # ---- NAMED document literals (no bare '#' at a render site) ------------------------------------------------
 GALLERY_TITLE = '# glyfi UI gallery'
@@ -39,16 +32,8 @@ WALKTHROUGH_INTRO = ('A small BDD flow (open the palette -> type a filter -> ope
 
 
 def _deterministic_fields() -> None:
-    """Pin the live detail fields (cwd / localtime) to fixed neutral values for the capture run ONLY.
-
-    Idempotent: applies the override at the start of each build so a generated artifact never embeds the real
-    working directory or the real wall clock. Uses the public field-registry seam (``override_field_fn``) so
-    the slot LABELS the config editor shows are preserved; only the rendered VALUE is pinned. The field
-    registry is process-global, so this presentation belongs to the gallery generation -- it is set here and
-    intentionally not restored (the capture process exists only to emit the docs).
-    """
-    fields_mod.override_field_fn(fields_mod.ALIAS_CWD, lambda _vm: DETERMINISTIC_CWD)
-    fields_mod.override_field_fn(fields_mod.ALIAS_LOCALTIME, lambda _vm: DETERMINISTIC_LOCALTIME)
+    """Pin the live detail fields (cwd / localtime) -- the shared deterministic-fields pin (kept as a thin alias)."""
+    pin_deterministic_fields()
 
 
 def _fresh_driver():

@@ -189,5 +189,9 @@ the rendered content — no request is ever made.
 - `glyfi/contrib/docs_capture/plugin.py` — the `/capture` handler.
 - `glyfi/plugins/builtin/docs_capture.json` — the command manifest.
 - `glyfi/contrib/docs_capture/gallery.py` — the dogfood gallery + walkthrough.
+- `glyfi/contrib/docs_capture/detfields.py` — the shared deterministic detail-field pin.
+- `glyfi/contrib/docs_capture/specdocs.py` — the per-spec doc generator
+  (`python -m glyfi.contrib.docs_capture.specdocs --write` → `docs/specs/**`).
+- `glyfi/uitest/catalog.py` — the concern-grouped runnable spec catalog the generator reads.
 - Tests: `tests/test_docs_capture.py`, `tests/test_docs_markdown_flow.py`,
   `tests/test_docs_capture_plugin.py`.

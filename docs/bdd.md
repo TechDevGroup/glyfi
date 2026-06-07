@@ -194,6 +194,34 @@ Feature: the one-turn law (no auto-loop)
 
 ---
 
+## Generating spec docs
+
+The runnable specs are exposed as a concern-grouped catalog in `glyfi/uitest/catalog.py`
+(`concerns()`, `specs_for(concern)`, `all_specs()`), and a generator turns each spec into a
+Markdown document:
+
+```
+python -m glyfi.contrib.docs_capture.specdocs --write
+```
+
+This writes a per-spec tree under `docs/specs/`:
+
+```
+docs/specs/README.md                      # the index: every concern -> its specs
+docs/specs/<concern-slug>/<spec-slug>.md  # one file per scenario
+```
+
+Each spec file shows the scenario's Given/When/Then text followed by a **full-frame screen
+capture after every step**. The docs come from the **same specs the tests run** —
+`tests/uitest/test_spec_catalog.py` iterates the whole catalog and `run_strict()`s each spec,
+and the generator renders those same flows, so a doc cannot drift from tested behavior. Output
+is deterministic and trace-free (the cwd / clock detail fields are pinned to neutral
+placeholders; the virtual clock + mocked transport mean no network — the context-pane spec
+captures the no-key state). With no flag the command prints the index plus a written-file count
+instead of writing.
+
+---
+
 ## Runtime registries
 
 `glyfi/uitest/runtime.py` exposes `registries()` (the registered actions / constraints /
