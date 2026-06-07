@@ -460,6 +460,11 @@ class HeadlessView(View):
         self.painting: Painting = Painting()
         self.layout: Dict[str, Rect] = {}
 
+    @property
+    def size(self):
+        """The synthetic ``Size`` the headless View solves against (the public read of the backing ``_size``)."""
+        return self._size
+
     def resize(self, w: int, h: int) -> None:
         """Set the synthetic terminal size the headless View solves against (a driver's resize action)."""
         from glyfi.ui.layout import Size

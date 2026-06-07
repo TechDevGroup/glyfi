@@ -5,7 +5,7 @@ from glyfi.ui.fields import (
     ALIAS_CWD, ALIAS_LOCALTIME, ALIAS_SESSION, ALIAS_SEQ, ALIAS_MODE_FIELD,
     ALIAS_SUBJECT, ALIAS_TURNS, ALIAS_URL, ALIAS_TITLE, ALIAS_BLANK,
     LOCALTIME_FORMAT, HOME_ABBREV, SUBJECT_PLACEHOLDER,
-    register_field, known_aliases, field_label, alias_choices, resolve, resolve_labeled,
+    register_field, override_field_fn, known_aliases, field_label, alias_choices, resolve, resolve_labeled,
 )
 
 
@@ -87,6 +87,22 @@ def test_resolve_unknown_fails_loud():
 def test_register_dup_fails_loud():
     with pytest.raises(ValueError):
         register_field(ALIAS_SUBJECT, 'dup', lambda vm: '')
+
+
+def test_override_field_fn_pins_value_keeps_label():
+    original = fields._REGISTRY[ALIAS_SUBJECT].fn
+    try:
+        override_field_fn(ALIAS_SUBJECT, lambda _vm: 'pinned')
+        assert resolve(ALIAS_SUBJECT, _VM(last_subject='live')) == 'pinned'
+        assert field_label(ALIAS_SUBJECT) == 'subject'        # label preserved
+    finally:
+        fields._REGISTRY[ALIAS_SUBJECT] = fields.FieldProvider(
+            alias=ALIAS_SUBJECT, label='subject', fn=original)
+
+
+def test_override_field_fn_unknown_fails_loud():
+    with pytest.raises(KeyError):
+        override_field_fn('nope', lambda _vm: '')
 
 
 def test_alias_choices_pairs():

@@ -87,6 +87,34 @@ def command_spec(name: str) -> Optional[CommandSpec]:
     return _SPECS.get(name)
 
 
+# ---- snapshot / restore: a public seam for ISOLATED, repeatable registration -------------------------------
+# The command/spec registries are process-global (registration happens once at import + at bootstrap). To run a
+# block of registrations and roll back to a known baseline -- embedding several app instances in one process, or
+# isolating per-test registrations -- capture the current registry with ``snapshot_registry()``, register freely,
+# then ``restore_registry(snapshot)`` to return both dicts to exactly the captured contents.
+def snapshot_registry() -> object:
+    """Capture the current command + spec registries as an OPAQUE, immutable token (for ``restore_registry``).
+
+    The returned token is a frozen copy of the registry mapping; callers cannot mutate registry internals through
+    it. Holds the SAME ``Command`` / ``CommandSpec`` objects (these are themselves immutable specs), so the copy
+    is cheap. No behaviour change to the live registries -- this only reads them.
+    """
+    return (tuple(_COMMANDS.items()), tuple(_SPECS.items()))
+
+
+def restore_registry(snapshot: object) -> None:
+    """Reset the command + spec registries to exactly the contents captured by ``snapshot_registry()``.
+
+    Clears both registries and repopulates them from the token -- any registration made after the snapshot is
+    dropped, and anything removed is put back. Idempotent for a given token.
+    """
+    commands, specs = snapshot  # type: ignore[misc]
+    _COMMANDS.clear()
+    _COMMANDS.update(commands)
+    _SPECS.clear()
+    _SPECS.update(specs)
+
+
 def _register_builtins() -> None:
     """Wire the built-in palette commands. Each action is ONE explicit operator action -- never an auto-loop."""
     register_command(CMD_PROMPT, 'walk exactly one turn (prompts for subject + text)',

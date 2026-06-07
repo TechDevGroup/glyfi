@@ -52,6 +52,29 @@ def known_widgets() -> List[str]:
     return list(_WIDGETS.keys())
 
 
+# ---- snapshot / restore: a public seam for ISOLATED, repeatable widget registration ------------------------
+# The widget registry is process-global (factories register once at import). To register a set of widgets and
+# roll back to a known baseline -- embedding several app instances in one process, or isolating per-test
+# registrations -- capture it with ``snapshot_widgets()`` and return to that baseline with ``restore_widgets``.
+def snapshot_widgets() -> object:
+    """Capture the current widget registry as an OPAQUE, immutable token (for ``restore_widgets``).
+
+    The returned token is a frozen copy of the name->factory mapping; callers cannot mutate the registry through
+    it. No behaviour change to the live registry -- this only reads it.
+    """
+    return tuple(_WIDGETS.items())
+
+
+def restore_widgets(snapshot: object) -> None:
+    """Reset the widget registry to exactly the contents captured by ``snapshot_widgets()``.
+
+    Clears the registry and repopulates it from the token -- any registration made after the snapshot is dropped,
+    and anything removed is put back. Idempotent for a given token.
+    """
+    _WIDGETS.clear()
+    _WIDGETS.update(snapshot)  # type: ignore[arg-type]
+
+
 class WidgetHost:
     """The active-widget orchestrator -- opens a registered widget by name, routes keys, closes it. Single-tenant.
 

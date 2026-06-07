@@ -49,6 +49,10 @@ class WidgetContext:
     # (defaults to no-ops) so existing widgets/contexts that never construct these caps keep working unchanged.
     scroll_to: Callable[[int], None] = lambda offset: None
     current_offset: Callable[[], int] = lambda: 0
+    # ADDITIVE capability -- CAPTURE the live frame / one named region as composed text ROWS (for documentation
+    # capture). OPTIONAL (defaults to None) so existing widgets/contexts that never wire capture are unchanged.
+    capture_frame: Optional[Callable[[], List[str]]] = None
+    capture_region: Optional[Callable[[str], List[str]]] = None
 
 
 class Widget(ABC):

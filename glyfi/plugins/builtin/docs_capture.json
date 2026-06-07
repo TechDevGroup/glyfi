@@ -1,0 +1,16 @@
+{
+  "plugin": "docs-capture",
+  "commands": [
+    {
+      "name": "capture",
+      "description": "capture the live screen (or one region) as a Markdown screen fence",
+      "handler": "glyfi.contrib.docs_capture.plugin:capture_handler",
+      "args": {
+        "positionals": [
+          {"name": "region", "required": false}
+        ],
+        "flags": ["save"]
+      }
+    }
+  ]
+}

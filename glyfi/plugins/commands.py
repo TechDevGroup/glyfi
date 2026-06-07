@@ -162,6 +162,11 @@ class CommandContext:
     # (defaults to no-ops) so an existing handler/context that never constructs these caps is unchanged.
     scroll_to: Callable[[int], None] = lambda offset: None
     current_offset: Callable[[], int] = lambda: 0
+    # ADDITIVE capability -- CAPTURE the live frame (``capture_frame()``) or one named region
+    # (``capture_region(name)``) as already-composed text ROWS. OPTIONAL (defaults to None) so an existing
+    # handler/context that never wires capture is unchanged; a handler tests for None and fails loud-soft.
+    capture_frame: Optional[Callable[[], List[str]]] = None
+    capture_region: Optional[Callable[[str], List[str]]] = None
 
 
 # the handler signature: a resolved invocation + the scoped caps -> a declarative result.

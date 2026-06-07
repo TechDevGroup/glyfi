@@ -20,8 +20,9 @@ def _tmp_config(tmp_path):
 
 
 def test_build_viewmodel_wires_a_drivable_vm():
-    # build_viewmodel runs the plugin bootstrap; the module-global registries make a SECOND full bootstrap a
-    # fail-loud collision (by design), so we build exactly ONCE here and reuse the result for the frame check.
+    # build_viewmodel runs the plugin bootstrap. The autouse fixture in tests/conftest.py snapshots + restores
+    # the command/widget registries around every test, so this bootstrap is isolated (it starts from the
+    # import-time built-in baseline and leaks nothing). We build once and drive the resulting VM through a frame.
     from glyfi.app import build_viewmodel
     from glyfi.ui.driver import build_headless_driver
     vm = build_viewmodel(base_url='http://127.0.0.1:8800', session_id='glyfi-1',

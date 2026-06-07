@@ -114,6 +114,25 @@ class AppDriver:
     def painting(self) -> Painting:
         return self.view.painting
 
+    @property
+    def layout(self):
+        """The current solved region->Rect map the View painted against (the public capture seam)."""
+        return self.view.layout
+
+    @property
+    def size(self):
+        """The synthetic terminal ``Size`` the View solves against (the public capture seam)."""
+        return self.view.size
+
+    def frame(self):
+        """The current frame triple ``(painting, layout, size)`` -- the public seam for an external capture target.
+
+        A pure read of the latest painted frame: the ``Painting`` (per-region lines + highlight data), the solved
+        ``layout`` (region->``Rect``), and the synthetic ``Size``. External code composes a screen from these
+        WITHOUT reaching into any private attribute.
+        """
+        return self.painting, self.layout, self.size
+
     def region(self, name: str) -> List[str]:
         """The painted lines of region ``name`` in the current frame."""
         return self.view.painting.lines(name)

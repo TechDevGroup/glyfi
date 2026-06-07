@@ -56,6 +56,25 @@ def test_build_headless_driver_returns_appdriver_with_recording_bus():
     assert d.vm.bus.record is True
 
 
+def test_frame_seam_returns_usable_painting_layout_size():
+    """The public capture seam: ``frame()`` (+ ``layout`` / ``size``) returns the current frame with no private reach."""
+    from glyfi.ui.layout import Rect, Size
+    from glyfi.ui.view import Painting
+
+    d, _ = _driver(w=80, h=24)
+    painting, layout, size = d.frame()
+
+    assert isinstance(painting, Painting)
+    assert isinstance(size, Size)
+    assert (size.w, size.h) == (80, 24)
+    # the layout is the solved region->Rect map and is non-empty for a rendered frame
+    assert layout and all(isinstance(rect, Rect) for rect in layout.values())
+    # the seam mirrors the property accessors and the underlying view (a pure read of the same frame)
+    assert painting is d.painting
+    assert layout is d.layout is d.view.layout
+    assert size is d.size is d.view.size
+
+
 def test_status_has_its_own_region_above_the_input_fence():
     d, _ = _driver()
     status_rect = d.view.layout[REGION_STATUS]

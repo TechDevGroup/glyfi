@@ -729,6 +729,29 @@ class AppViewModel:
         body = body.strip()
         return body.split(' ', 1)[0] if body else ''
 
+    # ===== the DOCUMENTATION-CAPTURE seam (render the live frame to composed text rows) =====================
+    def _capture_size(self) -> Size:
+        """Reconstruct the pane ``Size`` from the most recent solved layout (the frame extents the View painted)."""
+        if not self.last_layout:
+            return Size(w=0, h=0)
+        w = max(r.x + r.w for r in self.last_layout.values())
+        h = max(r.y + r.h for r in self.last_layout.values())
+        return Size(w=w, h=h)
+
+    def capture_frame_rows(self) -> List[str]:
+        """The LIVE frame as composed text rows -- paint the current state, place each region at its Rect, fill gaps."""
+        from glyfi.contrib.docs_capture.capture import frame_rows
+        from glyfi.ui.view import RegionPainter
+        painting = RegionPainter().paint(self, self.last_layout)
+        return frame_rows(painting, self.last_layout, self._capture_size())
+
+    def capture_region_rows(self, region: str) -> List[str]:
+        """One named region's painted lines (padded to a common width) -- the live region the View would show."""
+        from glyfi.contrib.docs_capture.capture import region_rows
+        from glyfi.ui.view import RegionPainter
+        painting = RegionPainter().paint(self, self.last_layout)
+        return region_rows(painting, region)
+
     # ===== the args->handler COMMAND PIPELINE seam (slash commands carry args) ==============================
     def command_context(self) -> CommandContext:
         """The SCOPED caps a command handler + the pipeline applier touch -- this VM's content/status/widget/emit."""
@@ -739,6 +762,8 @@ class AppViewModel:
             emit=self.bus.emit,
             scroll_to=self.scroll_to_offset,
             current_offset=self.current_scroll_offset,
+            capture_frame=self.capture_frame_rows,
+            capture_region=self.capture_region_rows,
         )
 
     def run_command_raw(self, raw: str) -> None:

@@ -71,6 +71,20 @@ def register_field(alias: str, label: str, fn: Callable[[object], str]) -> None:
     _REGISTRY[alias] = FieldProvider(alias=alias, label=label, fn=fn)
 
 
+def override_field_fn(alias: str, fn: Callable[[object], str]) -> None:
+    """Replace the resolver ``fn`` for an already-registered ``alias`` (keeping its label). Fail LOUD on unknown.
+
+    A deliberate seam for callers that need to PIN a slot's rendered value (e.g. deterministic documentation
+    capture) without re-registering -- the label the config editor shows is preserved. Unlike ``register_field``
+    this does not fail on an existing alias; it requires one (an unknown alias is a fault we surface, not a
+    silent new slot).
+    """
+    if alias not in _REGISTRY:
+        raise KeyError(f'unknown field alias {alias!r} (known: {known_aliases()})')
+    current = _REGISTRY[alias]
+    _REGISTRY[alias] = FieldProvider(alias=alias, label=current.label, fn=fn)
+
+
 def _register_builtins() -> None:
     """Wire the built-in field providers. Idempotent-safe to call once at import (registry starts empty)."""
     register_field(ALIAS_CWD, 'working dir', _cwd)
