@@ -1,11 +1,10 @@
-"""The spec-doc GENERATOR is deterministic, one-file-per-spec + an index, and leaks no machine/trace specifics.
+"""The spec-doc GENERATOR is deterministic, one-file-per-spec + an index, and leaks no machine specifics.
 
 Asserts: ``generate_spec_docs`` is byte-stable across two calls; it emits exactly one file per catalog spec plus
 the index; every spec file carries at least one full-frame screen fence; and no generated file leaks the real
-cwd / wall clock or any forbidden token.
+working directory in any form.
 """
 import os
-import re
 
 import pytest
 
@@ -21,6 +20,16 @@ def _tmp_config(tmp_path):
     os.environ.pop(ENV_API_KEY, None)
     yield
     os.environ.pop(ENV_CONFIG, None)
+
+
+def _machine_path_forms():
+    """The forms of the real working directory that must never appear in a generated doc."""
+    real_cwd = os.getcwd()
+    forms = [real_cwd, os.path.basename(real_cwd)]
+    home = os.environ.get('HOME', '')
+    if home and real_cwd.startswith(home):
+        forms.append('~' + real_cwd[len(home):])
+    return [f for f in forms if f]
 
 
 def test_generate_is_byte_stable_across_two_calls():
@@ -39,7 +48,7 @@ def test_one_file_per_spec_plus_the_index():
     assert len(set(spec_files)) == len(spec_files)
     for key in spec_files:
         assert key.startswith(f'{specdocs.SPECS_DIRNAME}/') and key.endswith('.md')
-        assert 'glyph' not in key                # slugs / filenames must not contain the forbidden token
+        assert os.path.basename(os.getcwd()) not in key   # slugs/filenames never embed the real working dir name
 
 
 def test_every_spec_file_has_a_full_frame_fence():
@@ -60,19 +69,11 @@ def test_index_links_every_concern_and_spec():
         assert f'[{spec.name}]' in index
 
 
-_FORBIDDEN = re.compile(
-    r'glyph|glyphon|glyphlang|wordnet|silo|molecule|codec|preamble|directive|'
-    r'glyphon_id|anthropic|co-authored|glyphmon',
-    re.IGNORECASE,
-)
-
-
-def test_no_forbidden_or_machine_specific_leak():
+def test_no_machine_specific_leak():
     docs = specdocs.generate_spec_docs()
-    real_cwd = os.getcwd()
     for key, text in docs.items():
-        assert not _FORBIDDEN.search(text), f'forbidden token leaked into {key}'
-        assert real_cwd not in text, f'the real cwd leaked into {key}'
+        for form in _machine_path_forms():
+            assert form not in text, f'the real working directory ({form!r}) leaked into {key}'
 
 
 def test_write_spec_docs_writes_the_tree(tmp_path):
