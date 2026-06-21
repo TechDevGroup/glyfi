@@ -58,6 +58,10 @@ class Painting:
     highlight_cells: Dict[str, Tuple[int, int, int]] = field(default_factory=dict)
     highlight_rows: Dict[str, int] = field(default_factory=dict)
     region_roles: Dict[str, str] = field(default_factory=dict)
+    # ADDITIVE: a widget may ACCENT-colour specific cell spans within its content (e.g. a metric value) WITHOUT
+    # selecting them -- region -> a list of (row, start_col, end_col) spans rendered in the ACCENT-2 role. Default
+    # empty so every existing region/widget is unchanged.
+    accent_cells: Dict[str, List[Tuple[int, int, int]]] = field(default_factory=dict)
     breadcrumb: str = ''
 
     def lines(self, region: str) -> List[str]:
@@ -232,7 +236,13 @@ class RegionPainter:
             highlight_cells[REGION_CONTENT] = content_value_cell
         if input_caret_cell is not None:
             highlight_cells[REGION_INPUT] = input_caret_cell      # the typing CURSOR (a reverse-video block bar)
+        accent_cells: Dict[str, List[Tuple[int, int, int]]] = {}
+        if vm.mode_ui == UI_WIDGET and REGION_CONTENT in layout:   # let the active widget accent metric spans
+            spans = vm.widgets.accents(layout[REGION_CONTENT])
+            if spans:
+                accent_cells[REGION_CONTENT] = list(spans)
         return Painting(regions=regions, highlight_regions=highlight, highlight_cells=highlight_cells,
+                        accent_cells=accent_cells,
                         highlight_rows=highlight_rows, region_roles=region_roles, breadcrumb=crumb)
 
     def _fit_title(self, vm: AppViewModel, crumb: str, width: int) -> str:
@@ -268,13 +278,14 @@ class RegionPainter:
         """Place the typing CURSOR at the insertion point -> ``(text_with_caret_room, (row, start, end))``.
 
         The cursor is a one-cell reverse-video BLOCK bar (reusing the SELECT accent). It sits at the INSERTION
-        COLUMN, which is the end of the live buffer (typing appends). Shown only while the operator is editing
-        (NORMAL with a buffer, or PALETTE).
+        COLUMN, which is the live ``input_caret`` position within the buffer (mid-line ←/→ editing -- not pinned
+        to the end). Shown only while the operator is editing (NORMAL with a buffer, or PALETTE).
         """
         editing = vm.mode_ui == UI_PALETTE or (vm.mode_ui == UI_NORMAL and bool(vm.input_buffer))
         if not editing:
             return text, None
-        caret_col = len(INPUT_PROMPT) + len(vm.input_buffer)     # insertion point = end of the buffer
+        caret = max(0, min(vm.input_caret, len(vm.input_buffer)))  # clamp to the buffer (defensive)
+        caret_col = len(INPUT_PROMPT) + caret                     # insertion point = the caret within the buffer
         if caret_col >= width:
             return text, None                                    # off-screen (over-long input) -> no caret cell
         return text, (0, caret_col, caret_col + 1)

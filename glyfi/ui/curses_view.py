@@ -63,6 +63,8 @@ class CursesView(View):
         whole_area = name in painting.highlight_regions
         sel_row = painting.highlight_rows.get(name)
         cell = painting.highlight_cells.get(name)        # a (row, start, end) col span to highlight WITHIN that row
+        accents = painting.accent_cells.get(name, [])    # (row, start, end) spans to ACCENT-colour (not select)
+        accent_attr = theme.role_attr(theme.ROLE_ACCENT_2)
         role_attr = theme.role_attr(painting.role(name))
         if whole_area:
             self._fill_rect(rect, select_attr)
@@ -77,6 +79,9 @@ class CursesView(View):
             self._safe_addstr(rect.y + row, rect.x, line[:rect.w], attr)
             if cell is not None and cell[0] == row:
                 self._blit_cell(rect, row, line, cell, select_attr)
+            for span in accents:                          # overlay metric-value spans in the accent-2 colour
+                if span[0] == row:
+                    self._blit_cell(rect, row, line, span, accent_attr)
 
     def _blit_cell(self, rect: Rect, row: int, line: str, cell, select_attr: int) -> None:
         """Overlay just the ``(row, start, end)`` column span of a row with the SELECT attr -- a single field highlight."""

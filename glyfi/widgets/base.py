@@ -25,7 +25,7 @@ Self-contained: ABC + stdlib typing + the layout ``Rect``. NO curses, NO ViewMod
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 from glyfi.ui.layout import Rect
 
@@ -89,6 +89,12 @@ class Widget(ABC):
     def highlight(self) -> Optional[int]:
         """The selected row within ``lines`` (for the focus marker / select highlight), or None for no selection."""
         return None
+
+    def accents(self, rect: Rect) -> List[Tuple[int, int, int]]:
+        """OPTIONAL: cell spans ``(row, start_col, end_col)`` within the widget's content to ACCENT-colour (e.g. a
+        metric value), WITHOUT selecting them. Rows index into ``lines(rect)``. Default: none -- existing widgets
+        are unchanged. The host forwards these; the View paints them in the ACCENT-2 role."""
+        return []
 
     def close(self) -> None:
         """Release the widget's state (called when the host closes it). Default: nothing to release."""

@@ -14,7 +14,7 @@ widget first refusal; ``close`` tears it down. ``active`` / ``lines`` / ``highli
 
 Self-contained: widget base + layout + stdlib only. NO curses, NO ViewModel import (callbacks are injected).
 """
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from glyfi.ui.layout import Rect
 from glyfi.widgets.base import Widget, WidgetContext
@@ -160,6 +160,12 @@ class WidgetHost:
         if self._active is None:
             return None
         return self._active.highlight()
+
+    def accents(self, rect: Rect) -> List[Tuple[int, int, int]]:
+        """The active widget's ACCENT cell spans (or none) -- the View paints them in the accent-2 role."""
+        if self._active is None:
+            return []
+        return self._active.accents(rect)
 
     def title(self) -> str:
         """The active widget's human title (for the host breadcrumb), or '' when none is open."""

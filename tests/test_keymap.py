@@ -70,6 +70,64 @@ def test_command_letters_fire_only_when_buffer_empty():
     assert vm.mode == 'plan'
 
 
+def test_input_caret_mid_line_insert():
+    # type 'abc', move the caret left twice (between a and b), insert 'X' -> 'aXbc'.
+    vm, _ = _vm()
+    for ch in 'abc':
+        dispatch_key(vm, ord(ch))
+    assert vm.input_buffer == 'abc' and vm.input_caret == 3
+    dispatch_key(vm, curses.KEY_LEFT)
+    dispatch_key(vm, curses.KEY_LEFT)
+    assert vm.input_caret == 1
+    dispatch_key(vm, ord('X'))
+    assert vm.input_buffer == 'aXbc' and vm.input_caret == 2
+
+
+def test_input_caret_mid_line_backspace():
+    # 'abc', caret between a and b, backspace deletes the 'a' before the caret -> 'bc'.
+    vm, _ = _vm()
+    for ch in 'abc':
+        dispatch_key(vm, ord(ch))
+    dispatch_key(vm, curses.KEY_LEFT)
+    dispatch_key(vm, curses.KEY_LEFT)
+    assert vm.input_caret == 1
+    dispatch_key(vm, KEYS_BACKSPACE[0])
+    assert vm.input_buffer == 'bc' and vm.input_caret == 0
+
+
+def test_input_caret_clamps_and_right_advances():
+    vm, _ = _vm()
+    for ch in 'ab':
+        dispatch_key(vm, ord(ch))
+    dispatch_key(vm, curses.KEY_LEFT); dispatch_key(vm, curses.KEY_LEFT)
+    dispatch_key(vm, curses.KEY_LEFT)                 # extra Left clamps at 0 (no underflow)
+    assert vm.input_caret == 0
+    dispatch_key(vm, curses.KEY_RIGHT)
+    assert vm.input_caret == 1
+    dispatch_key(vm, curses.KEY_END)
+    assert vm.input_caret == 2
+    dispatch_key(vm, curses.KEY_HOME)
+    assert vm.input_caret == 0
+
+
+def test_left_right_inert_on_empty_buffer_in_normal():
+    # with an EMPTY buffer, Left/Right are inert (no input focus) -- they must not crash or change mode.
+    vm, _ = _vm()
+    dispatch_key(vm, curses.KEY_LEFT)
+    dispatch_key(vm, curses.KEY_RIGHT)
+    assert vm.input_buffer == '' and vm.input_caret == 0 and vm.mode_ui == UI_NORMAL
+
+
+def test_history_restore_lands_caret_at_end():
+    vm, _ = _vm()
+    for ch in 'hello':
+        dispatch_key(vm, ord(ch))
+    dispatch_key(vm, KEYS_ENTER[0])                  # submit -> recorded in history, buffer cleared
+    assert vm.input_buffer == '' and vm.input_caret == 0
+    dispatch_key(vm, curses.KEY_UP)                  # recall the older line
+    assert vm.input_buffer == 'hello' and vm.input_caret == len('hello')
+
+
 def test_prompt_key_opens_prompt_modal():
     vm, _ = _vm()
     dispatch_key(vm, ord('s'))
@@ -137,6 +195,32 @@ def test_palette_enter_runs_selected():
     dispatch_key(vm, KEYS_ENTER[0])
     assert vm.mode_ui == UI_NORMAL
     assert vm.mode == 'plan'                   # the mode command cycled
+
+
+def test_palette_mid_command_caret_edit():
+    from glyfi.plugins.palette import PALETTE_PREFIX
+    vm, _ = _vm()
+    vm.open_palette()                          # buffer == '/', caret just after the prefix
+    for ch in 'mde':
+        dispatch_key(vm, ord(ch))
+    assert vm.input_buffer == f'{PALETTE_PREFIX}mde'
+    dispatch_key(vm, curses.KEY_LEFT)          # caret between 'd' and 'e'
+    dispatch_key(vm, curses.KEY_LEFT)          # caret between 'm' and 'd'
+    dispatch_key(vm, ord('o'))                 # insert -> '/mode'
+    assert vm.input_buffer == f'{PALETTE_PREFIX}mode' and vm.mode_ui == UI_PALETTE
+    dispatch_key(vm, KEYS_ENTER[0])
+    assert vm.mode == 'plan'                    # the filtered+edited command still runs
+
+
+def test_palette_left_at_prefix_closes_but_mid_command_does_not():
+    from glyfi.plugins.palette import PALETTE_PREFIX
+    vm, _ = _vm()
+    vm.open_palette()
+    dispatch_key(vm, ord('x'))                  # '/x', caret after x
+    dispatch_key(vm, curses.KEY_LEFT)           # mid-command: caret retreats, stays in PALETTE (does NOT close)
+    assert vm.mode_ui == UI_PALETTE and vm.input_caret == len(PALETTE_PREFIX)
+    dispatch_key(vm, curses.KEY_LEFT)           # now AT the prefix boundary -> Left navigates back (closes)
+    assert vm.mode_ui == UI_NORMAL
 
 
 # ===== CONFIG ============================================================================================

@@ -72,6 +72,18 @@ def _dispatch_normal(vm: AppViewModel, ch: int) -> None:
         vm.history_older(); return
     if ch == curses.KEY_DOWN:
         vm.history_newer(); return
+    # mid-line input-caret editing on Left/Right -- ONLY while the input line is the active focus (a non-empty
+    # buffer). With an EMPTY buffer these are inert (NORMAL has no content-traversal Left/Right -- that is its own
+    # mode), so the input-caret binding can never clobber anything.
+    if vm.input_buffer:
+        if ch == curses.KEY_LEFT:
+            vm.input_caret_left(); return
+        if ch == curses.KEY_RIGHT:
+            vm.input_caret_right(); return
+        if ch == curses.KEY_HOME:
+            vm.input_caret_home(); return
+        if ch == curses.KEY_END:
+            vm.input_caret_end(); return
     # Tab cycles the ephemeral ticker ring.
     if ch == TAB:
         vm.cycle_ticker(); return
@@ -119,13 +131,20 @@ def _dispatch_widget(vm: AppViewModel, ch: int) -> None:
 
 def _dispatch_palette(vm: AppViewModel, ch: int) -> None:
     # ARROW navigation is the PRIMARY interaction; type-to-filter is the SECONDARY fast-jump.
+    from glyfi.plugins.palette import PALETTE_PREFIX
     if ch == curses.KEY_UP:
         vm.palette_up()
     elif ch == curses.KEY_DOWN:
         vm.palette_down()
     elif ch in KEYS_ENTER:
         vm.palette_run()
-    elif ch == KEY_ESC or ch == curses.KEY_LEFT:    # Esc / Left-arrow navigate BACK (the breadcrumb's up-a-level)
+    elif ch == curses.KEY_RIGHT:                    # Right-arrow moves the input caret RIGHT (mid-command editing)
+        vm.input_caret_right()
+    elif ch == curses.KEY_LEFT and vm.input_caret > len(PALETTE_PREFIX):
+        # mid-command: Left moves the caret left within the typed body; only at the prefix boundary does it
+        # fall through to the breadcrumb's up-a-level (below) -- so Left never clobbers mid-command editing.
+        vm.input_caret_left()
+    elif ch == KEY_ESC or ch == curses.KEY_LEFT:    # Esc / Left-at-the-start navigate BACK (breadcrumb up-a-level)
         vm.close_modal()
     elif ch in KEYS_BACKSPACE:
         vm.palette_backspace()

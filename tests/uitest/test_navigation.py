@@ -16,6 +16,7 @@ import glyfi.widgets.help_widget as help_widget   # importing registers WIDGET_H
 from glyfi.ui.config_store import ENV_CONFIG, UserConfig
 from glyfi.ui.settings import KEY_TRAVERSE
 from glyfi.ui.viewmodel import UI_NORMAL, UI_WIDGET, UI_TRAVERSE
+from glyfi.ui import content_view
 import glyfi.uitest as U
 
 
@@ -93,3 +94,41 @@ def test_spec_default_content_is_expanded_full():
     ctx, _ = _seed_long_transcript()
     p = ctx.probe()
     assert U.region_contains('content', 'tail-marker').check(p).holds   # body visible by default = expanded
+
+
+def _caret_row(vm):
+    """The VisualRow the content-traversal caret currently sits on (top-down resolve of the bottom-counted offset)."""
+    w = vm.last_layout['content'].w
+    rows = vm.content_visual_rows(w)
+    return rows[vm.traverse_caret.row_index(len(rows))]
+
+
+# ===== SPEC C -- COLLAPSE RE-ANCHOR: the caret STAYS on the toggled entry's header (no jump) ================
+def test_spec_collapse_keeps_caret_on_entry_header():
+    """BUG: collapsing an entry jumped the caret UP by 1+ rows (the bottom-counted offset landed on a different
+    visual row once the body rows vanished). FIX: re-anchor the caret to the toggled entry's HEADER row so it
+    STAYS on the toggle. Driven headless: caret on an EXPANDED entry's header -> Left collapses -> caret still on
+    that same entry's header (the marker just flips ▾ -> ▸)."""
+    ctx, _ = _seed_long_transcript()
+    U.Press(KEY_TRAVERSE).run(ctx)                  # enter CONTENT-TRAVERSAL (caret at the newest row)
+    vm = ctx.driver.vm
+    # walk the caret UP until it sits on the header of a MIDDLE entry (entry 1) -- a short single-row header that
+    # has a body below it, so a collapse shrinks the rows beneath the caret (the exact jump condition).
+    for _ in range(len(vm.content_visual_rows(vm.last_layout['content'].w))):
+        row = _caret_row(vm)
+        if row.entry_index == 1 and row.is_header:
+            break
+        U.Press(curses.KEY_UP).run(ctx)
+    before = _caret_row(vm)
+    assert before.entry_index == 1 and before.is_header, 'precondition: caret on entry-1 header (expanded)'
+    assert before.text.lstrip().startswith(content_view.MARKER_EXPANDED)   # ▾ = expanded
+    # COLLAPSE the entry the caret sits in (Left). The caret MUST remain on entry-1's header (re-anchored).
+    U.Press(curses.KEY_LEFT).run(ctx)
+    after = _caret_row(vm)
+    assert after.entry_index == 1 and after.is_header, \
+        f'caret must stay on the toggled entry header, jumped to entry {after.entry_index} ({after.text!r})'
+    assert after.text.lstrip().startswith(content_view.MARKER_COLLAPSED)   # ▸ = now collapsed, same header
+    # EXPAND it again (Right) -- the caret STILL stays on that entry's header (re-anchored both ways).
+    U.Press(curses.KEY_RIGHT).run(ctx)
+    re = _caret_row(vm)
+    assert re.entry_index == 1 and re.is_header, f're-expand must keep the caret on the header, got {re!r}'

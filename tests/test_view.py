@@ -75,6 +75,23 @@ def test_input_hint_dim_role_when_empty():
     assert painting.lines(REGION_INPUT)[0].startswith(INPUT_PROMPT)
 
 
+def test_input_caret_renders_at_insertion_point_not_end():
+    # the typing cursor must sit at the LIVE input_caret column (mid-line editing), not pinned to the buffer end.
+    vm = _vm()
+    vm.input_buffer = 'abcdef'
+    vm.input_caret = 2                          # caret between 'b' and 'c'
+    painter = RegionPainter()
+    text, cell = painter._with_input_caret(vm, f'{INPUT_PROMPT}{vm.input_buffer}', width=80)
+    assert cell is not None
+    _row, start, end = cell
+    assert start == len(INPUT_PROMPT) + 2       # insertion point, NOT len(INPUT_PROMPT)+len(buffer)
+    assert end == start + 1
+    # moving the caret to the end re-pins the cursor at the buffer end.
+    vm.input_caret = len(vm.input_buffer)
+    _t, cell_end = painter._with_input_caret(vm, f'{INPUT_PROMPT}{vm.input_buffer}', width=80)
+    assert cell_end[1] == len(INPUT_PROMPT) + len(vm.input_buffer)
+
+
 def test_destructive_confirm_uses_red_role_only_here():
     vm = _vm()
     vm.request_quit()                          # arms the confirm latch

@@ -111,6 +111,9 @@ class AppViewModel:
     auto_follow: bool = True
     unseen_below: int = 0
     input_buffer: str = ''
+    # the in-line INSERTION-POINT caret within ``input_buffer`` (mid-line ←/→ editing; 0 = before the first char,
+    # ``len(input_buffer)`` = after the last). Kept consistent at every input_buffer reset/restore site.
+    input_caret: int = 0
     palette: PaletteState = field(default_factory=PaletteState)
     editor: EditorState = field(default_factory=EditorState)
     prompt_form: PromptState = field(default_factory=PromptState)
@@ -259,6 +262,7 @@ class AppViewModel:
         self.prompt_form = PromptState()
         self.mode_ui = UI_PROMPT
         self.input_buffer = ''
+        self.input_caret = 0
         self.push_status('prompt -- type the subject, ↓ to text, Enter to walk ONE turn, ↑ back to input, Esc cancel')
         self.bus.emit(ModeChanged(kind='ui', value=self.mode_ui))
         self.bus.emit(MenuMoved(menu=MENU_PROMPT, index=self.prompt_form.active))
@@ -297,6 +301,7 @@ class AppViewModel:
         user_text = self.prompt_form.text
         self.mode_ui = UI_NORMAL
         self.input_buffer = ''
+        self.input_caret = 0
         self.ticker.resume(self.clock)
         self.bus.emit(ModeChanged(kind='ui', value=self.mode_ui))
         self.step(user_text, subject)
@@ -340,6 +345,7 @@ class AppViewModel:
         if restored is None:
             return
         self.input_buffer = restored
+        self.input_caret = len(self.input_buffer)     # restore lands the caret at the end of the recalled line
         self.bus.emit(HistoryNavigated(direction=DIR_OLDER, buffer=self.input_buffer))
 
     def history_newer(self) -> None:
@@ -348,18 +354,40 @@ class AppViewModel:
         if restored is None:
             return
         self.input_buffer = restored
+        self.input_caret = len(self.input_buffer)     # restore lands the caret at the end of the recalled line
         self.bus.emit(HistoryNavigated(direction=DIR_NEWER, buffer=self.input_buffer))
 
     def input_type(self, ch: str) -> None:
-        """Type one char into the NORMAL-mode input buffer (palette has its own typing path)."""
-        self.input_buffer += ch
+        """Type one char into the NORMAL-mode input buffer at the caret (mid-line insert), advancing the caret."""
+        pos = max(0, min(self.input_caret, len(self.input_buffer)))
+        self.input_buffer = self.input_buffer[:pos] + ch + self.input_buffer[pos:]
+        self.input_caret = pos + 1
         self.history.reset()
 
     def input_backspace(self) -> None:
-        """Backspace one char off the NORMAL-mode input buffer."""
-        if self.input_buffer:
-            self.input_buffer = self.input_buffer[:-1]
+        """Backspace the char BEFORE the caret off the NORMAL-mode input buffer (mid-line), retreating the caret."""
+        pos = max(0, min(self.input_caret, len(self.input_buffer)))
+        if pos > 0:
+            self.input_buffer = self.input_buffer[:pos - 1] + self.input_buffer[pos:]
+            self.input_caret = pos - 1
             self.history.reset()
+
+    # ---- mid-line caret movement over the input buffer (NORMAL free-text + PALETTE slash-command) ------------
+    def input_caret_left(self) -> None:
+        """←: move the input caret one cell left (clamped at the buffer start)."""
+        self.input_caret = max(0, min(self.input_caret, len(self.input_buffer)) - 1)
+
+    def input_caret_right(self) -> None:
+        """→: move the input caret one cell right (clamped at the buffer end)."""
+        self.input_caret = min(len(self.input_buffer), self.input_caret + 1)
+
+    def input_caret_home(self) -> None:
+        """Home: jump the input caret to the buffer start."""
+        self.input_caret = 0
+
+    def input_caret_end(self) -> None:
+        """End: jump the input caret to the buffer end."""
+        self.input_caret = len(self.input_buffer)
 
     def submit_input(self) -> str:
         """Submit the NORMAL-mode input line -- record it in history, clear the buffer, emit InputSubmitted.
@@ -372,6 +400,7 @@ class AppViewModel:
             self.history.record(text)
             self.push_status(f'input submitted: {text!r}')
         self.input_buffer = ''
+        self.input_caret = 0
         self.history.reset()
         self.bus.emit(InputSubmitted(text=text))
         return text
@@ -481,6 +510,7 @@ class AppViewModel:
         self.traverse_caret = TraverseCaret(offset=0)
         self.mode_ui = UI_TRAVERSE
         self.input_buffer = ''
+        self.input_caret = 0
         self.push_status('traverse -- ↑↓ move caret (from newest) · → expand · ← collapse · Esc back to NORMAL')
         self.bus.emit(ModeChanged(kind='ui', value=self.mode_ui))
         self.bus.emit(MenuMoved(menu=MENU_TRAVERSE, index=self.traverse_caret.offset))
@@ -521,22 +551,43 @@ class AppViewModel:
         return None
 
     def traverse_expand(self) -> None:
-        """Right -- EXPAND the entry the caret sits in (show its full wrapped body). Re-clamps the caret."""
+        """Right -- EXPAND the entry the caret sits in (show its full wrapped body). Re-anchors the caret to its header."""
         idx = self._caret_entry_index()
         if idx is None:
             return
         self._collapse_overrides[idx] = False
-        self.traverse_caret.clamp(len(self._traverse_rows()))
+        self._anchor_caret_to_entry_header(idx)
         self.push_status('expanded entry -- full wrapped block')
 
     def traverse_collapse(self) -> None:
-        """Left -- COLLAPSE the entry the caret sits in (show only its one-line summary header). Re-clamps the caret."""
+        """Left -- COLLAPSE the entry the caret sits in (show only its one-line summary header). Re-anchors to its header."""
         idx = self._caret_entry_index()
         if idx is None:
             return
         self._collapse_overrides[idx] = True
-        self.traverse_caret.clamp(len(self._traverse_rows()))
+        self._anchor_caret_to_entry_header(idx)
         self.push_status('collapsed entry -- summary only')
+
+    def _anchor_caret_to_entry_header(self, entry_index: int) -> None:
+        """Re-anchor the traverse caret to the HEADER visual row of ``entry_index`` in the CURRENT (post-toggle) rows.
+
+        A collapse/expand changes the row count, so a bare ``clamp`` would leave the bottom-counted caret on a
+        DIFFERENT visual row (the observed jump). Instead we find the toggled entry's header row (the one carrying
+        the ▸/▾ marker) and set the caret's bottom-counted offset to land exactly on it -- so the caret STAYS on
+        the entry the operator just toggled. Falls back to a plain clamp if the header is somehow absent.
+        """
+        rows = self._traverse_rows()
+        total = len(rows)
+        if total <= 0:
+            self.traverse_caret.clamp(total)
+            return
+        header_top = next((i for i, r in enumerate(rows)
+                           if r.entry_index == entry_index and r.is_header), None)
+        if header_top is None:
+            self.traverse_caret.clamp(total)
+            return
+        self.traverse_caret.offset = (total - 1) - header_top   # bottom-counted offset of the header row
+        self.traverse_caret.clamp(total)
 
     # ---- config-driven scroll STEPS (NAMED via UserConfig; never a magic literal at a scroll site) ----------
     def scroll_delta(self) -> int:
@@ -673,18 +724,27 @@ class AppViewModel:
         self.cancel_confirm()
         self.mode_ui = UI_PALETTE
         self.input_buffer = palette_mod.PALETTE_PREFIX
+        self.input_caret = len(self.input_buffer)        # caret sits just after the ``/`` prefix, ready to type
         self.palette = PaletteState(buffer=self.input_buffer)
         self.push_status('palette -- Up/Down to navigate, Enter to run, type to filter, Esc to cancel')
         self.bus.emit(ModeChanged(kind='ui', value=self.mode_ui))
 
     def palette_type(self, ch: str) -> None:
-        self.input_buffer += ch
+        # mid-line insert at the caret (editing the command body is fine); the caret never precedes the prefix.
+        prefix = len(palette_mod.PALETTE_PREFIX)
+        pos = max(prefix, min(self.input_caret, len(self.input_buffer)))
+        self.input_buffer = self.input_buffer[:pos] + ch + self.input_buffer[pos:]
+        self.input_caret = pos + 1
         self.palette.buffer = self.input_buffer
         self.palette.clamp(palette_mod.all_commands())
 
     def palette_backspace(self) -> None:
-        if len(self.input_buffer) > len(palette_mod.PALETTE_PREFIX):
-            self.input_buffer = self.input_buffer[:-1]
+        # delete the char BEFORE the caret, but the ``/`` PREFIX is protected -- a backspace there CLOSES the palette.
+        prefix = len(palette_mod.PALETTE_PREFIX)
+        pos = max(prefix, min(self.input_caret, len(self.input_buffer)))
+        if pos > prefix:
+            self.input_buffer = self.input_buffer[:pos - 1] + self.input_buffer[pos:]
+            self.input_caret = pos - 1
             self.palette.buffer = self.input_buffer
             self.palette.clamp(palette_mod.all_commands())
         else:
@@ -717,6 +777,7 @@ class AppViewModel:
             return
         self.mode_ui = UI_NORMAL
         self.input_buffer = ''
+        self.input_caret = 0
         self.bus.emit(CommandInvoked(name=cmd.name))
         if palette_mod.command_spec(cmd.name) is not None:
             self.run_command_raw(raw if raw else f'{palette_mod.PALETTE_PREFIX}{cmd.name}')
@@ -858,6 +919,7 @@ class AppViewModel:
         self.widgets.open(name)          # fail loud on unknown name
         self.mode_ui = UI_WIDGET
         self.input_buffer = ''
+        self.input_caret = 0
         self.bus.emit(ModeChanged(kind='ui', value=self.mode_ui))
         self.bus.emit(MenuMoved(menu=MENU_WIDGET, index=0))
 
@@ -927,6 +989,7 @@ class AppViewModel:
         """The single return-to-NORMAL path -- restore the ticker's ephemerality (the menu-up suspension ends)."""
         self.mode_ui = UI_NORMAL
         self.input_buffer = ''
+        self.input_caret = 0
         self.ticker.resume(self.clock)   # the TTL was suspended while the menu was up -- restart it now
         self.bus.emit(ModeChanged(kind='ui', value=self.mode_ui))
 
