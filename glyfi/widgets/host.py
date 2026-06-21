@@ -14,10 +14,12 @@ widget first refusal; ``close`` tears it down. ``active`` / ``lines`` / ``highli
 
 Self-contained: widget base + layout + stdlib only. NO curses, NO ViewModel import (callbacks are injected).
 """
+import sys
 from typing import Callable, Dict, List, Optional, Tuple
 
 from glyfi.ui.layout import Rect
 from glyfi.widgets.base import Widget, WidgetContext
+from glyfi.widgets.hotreload import reload_if_changed, resolve_qualname
 
 
 class WidgetError(Exception):
@@ -166,6 +168,23 @@ class WidgetHost:
         if self._active is None:
             return []
         return self._active.accents(rect)
+
+    def reload_active(self) -> bool:
+        """HOT-RELOAD: if the active widget's source MODULE changed on disk, reload it and rebind the live instance
+        to the freshly-defined class -- preserving the widget's state (its ``__dict__`` is untouched). Returns True
+        iff a swap happened. This is how a widget/plugin picks up cosmetic/render edits with no stop/start (see
+        ``widgets.hotreload``). Fail-safe: a broken edit leaves the running widget on its last-good code."""
+        if self._active is None:
+            return False
+        cls = type(self._active)
+        mod = sys.modules.get(cls.__module__)
+        if mod is None or not reload_if_changed(mod):
+            return False
+        new_cls = resolve_qualname(mod, cls.__qualname__)
+        if isinstance(new_cls, type) and issubclass(new_cls, Widget) and new_cls is not cls:
+            self._active.__class__ = new_cls            # rebind methods; state in __dict__ survives untouched
+            return True
+        return False
 
     def title(self) -> str:
         """The active widget's human title (for the host breadcrumb), or '' when none is open."""

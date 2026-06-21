@@ -34,8 +34,10 @@ class CursesView(View):
 
     def __init__(self, stdscr, painter: RegionPainter):
         import curses
+        import os
         self._scr = stdscr
         self._painter = painter
+        self._hot = os.environ.get("GLYFI_HOTRELOAD") == "1"   # dev: hot-reload the active widget on source change
         curses.curs_set(0)
         self._scr.keypad(True)
         theme.init_theme()               # wire color pairs AFTER curses start (guards on has_colors)
@@ -47,6 +49,8 @@ class CursesView(View):
 
     def render(self, viewmodel: AppViewModel) -> None:
         """Solve the layout for the CURRENT screen size and paint every region. Re-callable on every resize."""
+        if self._hot:                                  # pick up live widget edits BEFORE painting this frame
+            viewmodel.reload_active_widget()
         size = self._current_size()
         layout: Dict[str, Rect] = viewmodel.resize(size)
         painting: Painting = self._painter.paint(viewmodel, layout)

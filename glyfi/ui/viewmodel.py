@@ -933,6 +933,13 @@ class AppViewModel:
         if self.mode_ui == UI_WIDGET:
             self._return_to_normal()
 
+    def reload_active_widget(self) -> bool:
+        """HOT-RELOAD the active widget's module if its source changed (dev convenience; see widgets.hotreload). A
+        no-op unless a widget owns the content region. Returns True iff the widget's class was swapped in place."""
+        if self.mode_ui == UI_WIDGET and self.widgets is not None:
+            return self.widgets.reload_active()
+        return False
+
     # ===== ALWAYS-VISIBLE mode + exit hint (no mode is a dead-end) =========================================
     def exit_hint(self) -> str:
         """How to LEAVE the current mode -- shown ALWAYS so no mode is a dead-end (the never-stuck a11y law)."""
