@@ -50,10 +50,15 @@ class VisualRow:
     ``entry_index`` ties the row back to its source entry (so the caret knows which entry to expand/collapse).
     ``is_header`` marks the entry's summary row (carries the collapse/expand marker). ``text`` is already wrapped
     to width (never ellipsized). The View paints these directly; the caret indexes into the row LIST.
+
+    ``color_role`` (C2a) is an OPTIONAL ``ROLE_*`` hint for the renderer -- a model-level semantic-color seam.
+    Default ``''`` means "no override" (the renderer treats the row as ROLE_NORMAL), so ``render_entries``
+    produces rows identical to today; a consumer that wraps/subclasses ``render_entries`` may set it.
     """
     text: str
     entry_index: int
     is_header: bool
+    color_role: str = ''
 
 
 def wrap_line(text: str, width: int) -> List[str]:

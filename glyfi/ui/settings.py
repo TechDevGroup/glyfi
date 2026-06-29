@@ -128,7 +128,15 @@ class AppSettings:
     title: str = DEFAULT_TITLE
     regions: Tuple[Region, ...] = field(default_factory=_default_regions)
     keys: Dict[str, str] = field(default_factory=_default_keys)
+    # C7: F-key (or any int key code) -> registered widget name. First-class binding for the
+    # downstream ``widget_keys`` convention. OCP default: EMPTY -- no key opens a widget, so
+    # NORMAL-mode dispatch is byte-identical to today until a consumer populates this.
+    widget_keys: Dict[int, str] = field(default_factory=dict)
 
     def command_for(self, key: str) -> str:
         """The command bound to ``key``, or the empty string if the key is unbound (the View ignores it)."""
         return self.keys.get(key, '')
+
+    def widget_for(self, ch: int) -> str:
+        """The widget name bound to int key code ``ch``, or '' if unbound (NORMAL-mode dispatch ignores it)."""
+        return self.widget_keys.get(ch, '')

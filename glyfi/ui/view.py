@@ -175,9 +175,37 @@ def _left_right(left: str, right: str, width: int) -> str:
 
 
 class RegionPainter:
-    """The PURE View painter -- ViewModel state + a solved layout -> a ``Painting`` (lines + highlight data)."""
+    """The PURE View painter -- ViewModel state + a solved layout -> a ``Painting`` (lines + highlight data).
+
+    C5 (post_paint hook): a consumer may pass ``post_paint=fn`` to patch the produced ``Painting`` after the
+    base paint completes (e.g. multi-line input rendering). ``fn(vm, layout, painting) -> Painting`` runs on the
+    result of ``_do_paint``; because ``Painting`` is frozen (G36) the hook must patch via ``dataclasses.replace``.
+    OCP default: ``post_paint=None`` -> ``_do_paint``'s result is returned directly, byte-identical to today.
+    ``HeadlessView`` constructs ``RegionPainter()`` with no args, so the default path is unchanged.
+
+    C3 (scroll_palette): defaults True -> the palette overlay windows long lists around the selection (a short
+    list that fits is byte-identical to truncation, so this is behavior-preserving). Set ``scroll_palette=False``
+    to restore the exact pre-windowing truncation behaviour.
+    """
+
+    def __init__(self, *,
+                 post_paint=None,
+                 scroll_palette: bool = True):
+        self._post_paint = post_paint
+        self._scroll_palette = scroll_palette
 
     def paint(self, vm: AppViewModel, layout: Dict[str, Rect]) -> Painting:
+        """The PUBLIC paint entry point -- run the base paint, then the optional C5 ``post_paint`` hook.
+
+        Every caller (``CursesView._blit`` path, ``HeadlessView.render``) uses this method; the rename of the
+        base body to ``_do_paint`` is invisible to them. The hook, when present, returns a (replaced) Painting.
+        """
+        painting = self._do_paint(vm, layout)
+        if self._post_paint is not None:
+            painting = self._post_paint(vm, layout, painting)
+        return painting
+
+    def _do_paint(self, vm: AppViewModel, layout: Dict[str, Rect]) -> Painting:
         """Produce the full frame -- clipped line-blocks per region + highlight + SEMANTIC ROLE + breadcrumb data."""
         regions: Dict[str, List[str]] = {}
         highlight_rows: Dict[str, int] = {}
@@ -429,17 +457,51 @@ class RegionPainter:
         return (lines, sel)
 
     def _palette_overlay(self, vm: AppViewModel):
-        """The slash-command list. ARROW-navigable (PRIMARY); type-to-filter narrows it (SECONDARY fast-jump)."""
+        """The slash-command list. ARROW-navigable (PRIMARY); type-to-filter narrows it (SECONDARY fast-jump).
+
+        C3 (Overlay List Windowing): when the filtered list is longer than the content rect can show, the list
+        is WINDOWED around the selected row (so a selection below the fold stays reachable) and ``↑ N more`` /
+        ``↓ N more`` affordance rows mark the hidden head/tail. When the list FITS (or ``scroll_palette`` is
+        False) the path is byte-identical to the pre-windowing behaviour -- ``_mark_focus`` over the full list.
+        """
         rows = vm.palette.filtered(palette_mod.all_commands())
-        width = vm.last_layout.get(REGION_CONTENT)
-        col = max(0, (width.w if width else 0) - 2)   # leave room for the 2-col focus gutter
+        layout_rect = vm.last_layout.get(REGION_CONTENT)
+        col = max(0, (layout_rect.w if layout_rect else 0) - 2)   # leave room for the 2-col focus gutter
         lines = []
         for cmd in rows:
             name = f'/{cmd.name}'
             lines.append(_left_right(name, cmd.description, col))
         if not lines:
             return ([f'(no command matches {vm.palette.filter_term!r})'], None)
-        return (_mark_focus(lines, vm.palette.selected), None)
+        n = len(lines)
+        selected = vm.palette.selected
+        height = layout_rect.h if layout_rect else 0
+        # Short list (or windowing disabled): unchanged behaviour -- mark focus over the full list. height<=0
+        # (no solved layout yet) also takes this path so we never window against an unknown rect.
+        if not self._scroll_palette or height <= 0 or n <= height:
+            return (_mark_focus(lines, selected), None)
+        # Long list: window around the selection, reserving 1 row per needed scroll indicator.
+        f = max(0, min(selected, n - 1))
+        # Tentative pass: assume BOTH indicators are needed to size ``avail``.
+        avail = max(1, height - 2)
+        start = max(0, min(f - avail // 2, n - avail))
+        ind_above = start > 0
+        ind_below = (start + avail) < n
+        # Second pass: recompute with the EXACT indicator count (each indicator costs 1 row).
+        num_ind = (1 if ind_above else 0) + (1 if ind_below else 0)
+        avail = max(1, height - num_ind)
+        start = max(0, min(f - avail // 2, n - avail))
+        ind_above = start > 0
+        ind_below = (start + avail) < n
+        visible = lines[start:start + avail]
+        focus_in_window = f - start
+        result = list(_mark_focus(visible, focus_in_window))
+        # Indicator rows use a 2-space indent matching the FOCUS_MARKER_BLANK + ' ' gutter of non-focused rows.
+        if ind_above:
+            result = [f'  ↑ {start} more'] + result
+        if ind_below:
+            result = result + [f'  ↓ {n - (start + avail)} more']
+        return (result, None)
 
     def _config_overlay(self, vm: AppViewModel):
         """The config editor -- SLOTS (slot positions + the INPUTS knobs), or the ALIASES / INPUTS sublevel."""
