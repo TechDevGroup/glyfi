@@ -54,6 +54,14 @@ DEFAULT_SCROLL_DELTA = 1
 DEFAULT_PAGE_OVERLAP = 3
 DEFAULT_CONTENT_COLLAPSED = False      # full expanded wrapped lines by default; collapse is opt-in
 
+# ---- NAMED view-plumbing flags (C3/C6 serializable flags settable via config file) --------------------
+# A power-user can enable these in their config file without changing code. The code-level ViewConfig on
+# AppSettings overrides these if set (not None). See ViewConfig docstring for the full precedence rule.
+KEY_BRACKETED_PASTE = 'bracketed_paste'    # C6: bool -- enable terminal bracketed paste (default False)
+KEY_SCROLL_PALETTE = 'scroll_palette'      # C3: bool -- palette/overlay list windowing (default True)
+DEFAULT_BRACKETED_PASTE = False            # off by default; opt-in via file or ViewConfig
+DEFAULT_SCROLL_PALETTE = True             # on by default (windowing; a short list is byte-identical)
+
 # ---- NAMED defaults ---------------------------------------------------------------------------------------
 DEFAULT_STATE_SLOTS = (ALIAS_SESSION, ALIAS_SEQ, ALIAS_MODE_FIELD, ALIAS_SUBJECT, ALIAS_TURNS)
 DEFAULT_DETAILS_LEFT = (ALIAS_CWD,)
@@ -91,6 +99,10 @@ class UserConfig:
     scroll_delta: int = DEFAULT_SCROLL_DELTA
     page_overlap: int = DEFAULT_PAGE_OVERLAP
     content_collapsed_default: bool = DEFAULT_CONTENT_COLLAPSED
+    # View-plumbing flags (C3/C6) -- file-settable; a code-level ViewConfig (on AppSettings.view)
+    # overrides these when its flag is not None. The code-level value wins (highest precedence).
+    bracketed_paste: bool = DEFAULT_BRACKETED_PASTE
+    scroll_palette: bool = DEFAULT_SCROLL_PALETTE
     path: str = ''
 
     def is_visible(self, region: str) -> bool:
@@ -111,6 +123,8 @@ class UserConfig:
             KEY_SCROLL_DELTA: self.scroll_delta,
             KEY_PAGE_OVERLAP: self.page_overlap,
             KEY_CONTENT_COLLAPSED_DEFAULT: self.content_collapsed_default,
+            KEY_BRACKETED_PASTE: self.bracketed_paste,
+            KEY_SCROLL_PALETTE: self.scroll_palette,
         }
 
 
@@ -127,6 +141,8 @@ def _from_json(data: Dict, path: str) -> UserConfig:
         scroll_delta=int(data.get(KEY_SCROLL_DELTA, DEFAULT_SCROLL_DELTA)),
         page_overlap=int(data.get(KEY_PAGE_OVERLAP, DEFAULT_PAGE_OVERLAP)),
         content_collapsed_default=bool(data.get(KEY_CONTENT_COLLAPSED_DEFAULT, DEFAULT_CONTENT_COLLAPSED)),
+        bracketed_paste=bool(data.get(KEY_BRACKETED_PASTE, DEFAULT_BRACKETED_PASTE)),
+        scroll_palette=bool(data.get(KEY_SCROLL_PALETTE, DEFAULT_SCROLL_PALETTE)),
         path=path,
     )
 

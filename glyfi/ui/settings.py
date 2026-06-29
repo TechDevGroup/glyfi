@@ -24,7 +24,7 @@ regions and the topmost-of-the-bottom (status) LAST. The on-screen bottom block 
 status, input_rule, input, status_rule, details. Adding the status line costs the FILL content exactly one row.
 """
 from dataclasses import dataclass, field
-from typing import Dict, Tuple
+from typing import Callable, Dict, Optional, Tuple
 from glyfi.ui.layout import Region, ANCHOR_TOP, ANCHOR_BOTTOM, ANCHOR_FILL
 
 # ---- NAMED region names (the fenced layout) ---------------------------------------------------------------
@@ -91,6 +91,44 @@ CTRL_D = 4
 TAB = 9
 
 
+@dataclass(frozen=True)
+class ViewConfig:
+    """Bundle of ALL opt-in view-plumbing capabilities (C1–C6) in ONE config object.
+
+    The consumer builds ONE ``ViewConfig`` and places it on ``AppSettings.view``; ``app.py:run()``
+    reads it and threads the resolved hooks/flags to ``CursesView`` + ``RegionPainter``. This is the
+    **single place** to configure the view layer — no scattered kwarg overrides at the call site.
+
+    Hooks (code-level, not file-serializable; default ``None`` = capability off):
+
+      * ``key_preprocessor`` (C1): ``fn(vm, ch) -> bool`` — runs before ``dispatch_key``; True consumes the key.
+      * ``row_classifier``  (C2b): ``fn(region_name, line) -> ROLE_*`` — per-row semantic color.
+      * ``pre_render``      (C4):  ``fn(vm) -> None`` — fires at top of ``render`` BEFORE the layout solve (G35).
+      * ``post_paint``      (C5):  ``fn(vm, layout, painting) -> Painting`` — patches the ``Painting`` after base paint.
+
+    Flags (serializable; ``None`` = defer to ``UserConfig`` file value):
+
+      * ``bracketed_paste`` (C6): enable terminal bracketed paste so pasted newlines never submit.
+        File default: ``False``.
+      * ``scroll_palette``  (C3): window the palette/overlay lists around the selection (long-list scroll).
+        File default: ``True`` (windowing on; a short list that fits is byte-identical to truncation).
+
+    Precedence (highest wins): explicit ``ViewConfig`` flag (non-``None``) > ``UserConfig`` file value > default.
+
+    OCP guarantee: ``ViewConfig()`` (all defaults) produces byte-identical behaviour to the pre-plumbing base.
+    Backward compat: ``CursesView``/``RegionPainter`` keep their individual kwargs from PR #1 — they still work
+    unchanged when a consumer does NOT route through ``AppSettings.view``.
+    """
+    # Callable hooks (code-level; not JSON-serializable; None = off)
+    key_preprocessor: Optional[Callable] = None
+    row_classifier: Optional[Callable] = None
+    pre_render: Optional[Callable] = None
+    post_paint: Optional[Callable] = None
+    # Serializable flags (Optional[bool]: None = defer to UserConfig; True/False = code-level override)
+    bracketed_paste: Optional[bool] = None   # C6 — file default False
+    scroll_palette: Optional[bool] = None    # C3 — file default True (windowing on = current behavior)
+
+
 def _default_regions() -> Tuple[Region, ...]:
     """The default FENCED layout. BOTTOM bands carve bottom-UP, so list the bottommost (details) FIRST and
     the topmost-of-the-bottom (status) LAST among the BOTTOM regions.
@@ -132,6 +170,10 @@ class AppSettings:
     # downstream ``widget_keys`` convention. OCP default: EMPTY -- no key opens a widget, so
     # NORMAL-mode dispatch is byte-identical to today until a consumer populates this.
     widget_keys: Dict[int, str] = field(default_factory=dict)
+    # ViewConfig: the single config object for all opt-in view-plumbing (C1-C6). OCP default:
+    # ``ViewConfig()`` = every hook None + every flag defers to UserConfig/default, so behaviour is
+    # byte-identical to a consumer that did not opt into any capability.
+    view: ViewConfig = field(default_factory=ViewConfig)
 
     def command_for(self, key: str) -> str:
         """The command bound to ``key``, or the empty string if the key is unbound (the View ignores it)."""

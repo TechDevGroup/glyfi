@@ -64,8 +64,38 @@ def load_plugins() -> None:
     ])
 
 
+def _resolve_view_flags(viewmodel: AppViewModel):
+    """Resolve the view-plumbing flags from ViewConfig (code) and UserConfig (file) per the precedence rule.
+
+    Precedence (highest wins): explicit ``ViewConfig`` flag (non-None) > ``UserConfig`` file value > default.
+    Returns ``(bracketed_paste: bool, scroll_palette: bool)``.
+    """
+    vc = viewmodel.model.settings.view
+    cfg = viewmodel.model.config
+    bracketed_paste = vc.bracketed_paste if vc.bracketed_paste is not None else cfg.bracketed_paste
+    scroll_palette = vc.scroll_palette if vc.scroll_palette is not None else cfg.scroll_palette
+    return bracketed_paste, scroll_palette
+
+
 def run(viewmodel: AppViewModel) -> None:
-    """Launch the curses app via ``curses.wrapper`` (sets up/tears down the terminal cleanly), then run the loop."""
+    """Launch the curses app via ``curses.wrapper`` (sets up/tears down the terminal cleanly), then run the loop.
+
+    Reads the ``ViewConfig`` from ``viewmodel.model.settings.view`` (the canonical single config object the
+    consumer builds) and merges it with the file-level ``UserConfig`` flags per the precedence rule
+    (code-explicit > file > default). Threads the resolved hooks and flags to ``CursesView`` + ``RegionPainter``.
+
+    Consumers who do NOT route through ``AppSettings.view`` and instead pass kwargs directly to
+    ``CursesView``/``RegionPainter`` still work unchanged (backward compat; the kwargs from PR #1 remain).
+    """
     import curses
     from glyfi.ui.curses_view import CursesView
-    curses.wrapper(lambda stdscr: CursesView(stdscr, RegionPainter()).run(viewmodel))
+    vc = viewmodel.model.settings.view
+    bracketed_paste, scroll_palette = _resolve_view_flags(viewmodel)
+    painter = RegionPainter(post_paint=vc.post_paint, scroll_palette=scroll_palette)
+    curses.wrapper(lambda stdscr: CursesView(
+        stdscr, painter,
+        key_preprocessor=vc.key_preprocessor,
+        row_classifier=vc.row_classifier,
+        pre_render=vc.pre_render,
+        bracketed_paste=bracketed_paste,
+    ).run(viewmodel))
