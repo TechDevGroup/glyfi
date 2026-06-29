@@ -92,6 +92,13 @@ def _dispatch_normal(vm: AppViewModel, ch: int) -> None:
         vm.submit_input(); return
     if ch in KEYS_BACKSPACE:
         vm.input_backspace(); return
+    # C7: F-key (or any non-printable int) -> open a registered widget, ONLY from an EMPTY buffer so a custom
+    # binding can never clobber free-text typing. OCP: widget_keys defaults EMPTY, so widget_for() is '' and this
+    # guard is inert -- NORMAL dispatch is unchanged until a consumer populates AppSettings.widget_keys.
+    if not vm.input_buffer:
+        widget_name = vm.model.settings.widget_for(ch)
+        if widget_name:
+            vm.open_widget(widget_name); return
     # the palette key (``/``) ENGAGES the palette ONLY from an EMPTY buffer -- it is the deliberate way INTO
     # command entry. Once the operator is typing free text, ``/`` is just a literal character.
     command = vm.model.settings.command_for(key_char)

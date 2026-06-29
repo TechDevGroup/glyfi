@@ -12,7 +12,7 @@ just wakes the loop to repaint so an expired ticker clears). Modal dispatch by `
 
 ``curses`` is imported lazily inside the methods (guarded) so this module imports safely on a headless machine.
 """
-from typing import Dict
+from typing import Callable, Dict, Optional
 from glyfi.ui.layout import Size, Rect
 from glyfi.ui.view import View, RegionPainter, Painting
 from glyfi.ui.viewmodel import AppViewModel
@@ -32,12 +32,29 @@ class CursesView(View):
     layout for the current screen size and blits each region; ``run`` is the operator-driven, MODAL keystroke loop.
     """
 
-    def __init__(self, stdscr, painter: RegionPainter):
+    def __init__(self, stdscr, painter: RegionPainter, *,
+                 key_preprocessor: Optional[Callable[['AppViewModel', int], bool]] = None,
+                 row_classifier: Optional[Callable[[str, str], str]] = None,
+                 pre_render: Optional[Callable[['AppViewModel'], None]] = None,
+                 bracketed_paste: bool = False):
+        """Construct the curses View. The four keyword-only hooks are opt-in extension points (OCP):
+
+          * ``key_preprocessor`` (C1): ``fn(vm, ch) -> bool`` called BEFORE ``dispatch_key``; True consumes the key.
+          * ``row_classifier`` (C2b): ``fn(region_name, line) -> ROLE_*`` for per-row semantic color in ``_blit_region``.
+          * ``pre_render`` (C4): ``fn(vm) -> None`` called at the TOP of ``render`` (before the layout solve, G35).
+          * ``bracketed_paste`` (C6): enable terminal bracketed paste so pasted newlines never submit.
+
+        Every hook defaults to None/False, so with no opt-in this View behaves byte-identically to before.
+        """
         import curses
         import os
         self._scr = stdscr
         self._painter = painter
         self._hot = os.environ.get("GLYFI_HOTRELOAD") == "1"   # dev: hot-reload the active widget on source change
+        self._key_preprocessor = key_preprocessor
+        self._row_classifier = row_classifier
+        self._pre_render = pre_render
+        self._bracketed_paste = bracketed_paste
         curses.curs_set(0)
         self._scr.keypad(True)
         theme.init_theme()               # wire color pairs AFTER curses start (guards on has_colors)
@@ -51,6 +68,8 @@ class CursesView(View):
         """Solve the layout for the CURRENT screen size and paint every region. Re-callable on every resize."""
         if self._hot:                                  # pick up live widget edits BEFORE painting this frame
             viewmodel.reload_active_widget()
+        if self._pre_render is not None:               # C4: dynamic region sizing -- MUST run BEFORE the layout
+            self._pre_render(viewmodel)                # solve (G35), since resize() reads vm.model.settings.regions
         size = self._current_size()
         layout: Dict[str, Rect] = viewmodel.resize(size)
         painting: Painting = self._painter.paint(viewmodel, layout)
@@ -75,11 +94,16 @@ class CursesView(View):
         for row, line in enumerate(painting.lines(name)):
             if row >= rect.h:
                 break
-            attr = role_attr
-            if whole_area:
+            # C2b + G38 (a11y, HARD): the SELECT override wins -- a selected/filled row ALWAYS shows select_attr,
+            # never its per-row content color. BOTH the whole_area AND the sel_row guards must precede the
+            # classifier branch. Only an unselected row consults the (optional) row_classifier; with no classifier
+            # opted in this falls through to the region-level role_attr -- byte-identical to before.
+            if whole_area or (sel_row is not None and row == sel_row):
                 attr = select_attr
-            if sel_row is not None and row == sel_row:
-                attr = select_attr
+            elif self._row_classifier is not None:
+                attr = theme.role_attr(self._row_classifier(name, line))
+            else:
+                attr = role_attr
             self._safe_addstr(rect.y + row, rect.x, line[:rect.w], attr)
             if cell is not None and cell[0] == row:
                 self._blit_cell(rect, row, line, cell, select_attr)
@@ -120,19 +144,73 @@ class CursesView(View):
         the ephemeral ticker past its TTL, and repaints. A timeout returns ``-1`` -- no key, no walk; we just emit
         a Tick (for any subscriber) and repaint. A real key goes through the SAME ``keymap`` the headless driver
         uses (one source of the key->command mapping).
+
+        C1 (key_preprocessor): each key goes through the preprocessor (if opted in) BEFORE ``dispatch_key``;
+        returning True consumes the key. C6 (bracketed_paste): when opted in, raw getch ints are fed through a
+        ``PasteStateMachine`` so a pasted block's newlines are inserted as text, never dispatched as Enter. Both
+        paths share ``_dispatch_paste_event`` so the C1 seam is honored identically in the paste and non-paste
+        routes. With both hooks at their defaults the loop is byte-identical to the original.
         """
         import curses
-        self._scr.timeout(GETCH_TIMEOUT_MS)
-        self.render(viewmodel)
-        while not viewmodel.should_quit:
-            ch = self._scr.getch()
-            if ch == -1:                              # the poll timeout fired (no key) -- tick + repaint to expire the ticker
-                viewmodel.bus.emit(Tick(now=viewmodel.clock.now()))
-                self.render(viewmodel)
-                continue
-            if ch == curses.KEY_RESIZE:
-                self.render(viewmodel)
-                continue
-            viewmodel.bus.emit(KeyPressed(key=ch, mode_ui=viewmodel.mode_ui))
-            dispatch_key(viewmodel, ch)
+        import sys
+        if self._bracketed_paste:                      # C6/G31: enable bracketed paste; ALWAYS restored in finally
+            sys.stdout.write('\033[?2004h')
+            sys.stdout.flush()
+        paste_sm = None
+        if self._bracketed_paste:
+            from glyfi.ui.paste_input import PasteStateMachine
+            paste_sm = PasteStateMachine()
+        try:
+            self._scr.timeout(GETCH_TIMEOUT_MS)
             self.render(viewmodel)
+            while not viewmodel.should_quit:
+                ch = self._scr.getch()
+                if ch == -1:                          # the poll timeout fired (no key) -- tick + repaint to expire the ticker
+                    if paste_sm is not None:          # C6/G32: drain a pending ESC prefix so a lone Esc is emitted
+                        for ev in paste_sm.flush():
+                            self._dispatch_paste_event(ev, viewmodel)
+                    viewmodel.bus.emit(Tick(now=viewmodel.clock.now()))
+                    self.render(viewmodel)
+                    continue
+                if ch == curses.KEY_RESIZE:
+                    if paste_sm is not None:          # flush pending prefix safely on resize
+                        for ev in paste_sm.flush():
+                            self._dispatch_paste_event(ev, viewmodel)
+                    self.render(viewmodel)
+                    continue
+                if paste_sm is not None:
+                    events = paste_sm.feed(ch)        # may buffer (no events) while matching a paste marker
+                    for ev in events:
+                        self._dispatch_paste_event(ev, viewmodel)
+                    if events:
+                        self.render(viewmodel)
+                else:
+                    viewmodel.bus.emit(KeyPressed(key=ch, mode_ui=viewmodel.mode_ui))
+                    if self._key_preprocessor is None or not self._key_preprocessor(viewmodel, ch):
+                        dispatch_key(viewmodel, ch)   # C1: preprocessor first; True = consumed (skip dispatch)
+                    self.render(viewmodel)
+        finally:
+            if self._bracketed_paste:                 # C6/G31: ALWAYS restore -- a terminal left in ?2004h is broken
+                try:
+                    sys.stdout.write('\033[?2004l')
+                    sys.stdout.flush()
+                except Exception:
+                    pass
+
+    def _dispatch_paste_event(self, ev, viewmodel: AppViewModel) -> None:
+        """Dispatch one ``PasteStateMachine`` event (C6), honoring the C1 preprocessor seam for passthroughs.
+
+        A ``('passthrough', ch)`` int is routed exactly like a normal keystroke -- emit ``KeyPressed``, then the
+        preprocessor (if any) before ``dispatch_key``; if C1 is not opted in the None-check short-circuits to
+        ``dispatch_key`` directly. An ``('insert', text)`` event inserts pasted text at the caret (newlines kept
+        verbatim -- never dispatched as Enter, so a multi-line paste never submits).
+        """
+        from glyfi.ui.paste_input import paste_insert
+        kind = ev[0]
+        if kind == 'passthrough':
+            pch = ev[1]
+            viewmodel.bus.emit(KeyPressed(key=pch, mode_ui=viewmodel.mode_ui))
+            if self._key_preprocessor is None or not self._key_preprocessor(viewmodel, pch):
+                dispatch_key(viewmodel, pch)
+        elif kind == 'insert':
+            paste_insert(viewmodel, ev[1])
