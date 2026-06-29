@@ -92,6 +92,12 @@ def _dispatch_normal(vm: AppViewModel, ch: int) -> None:
         vm.submit_input(); return
     if ch in KEYS_BACKSPACE:
         vm.input_backspace(); return
+    # NAVIGATION hotkeys: from an EMPTY buffer a bound key (e.g. a function key) opens a registered WIDGET directly
+    # -- the start-screen shortcut into any view. Esc always unwinds back (the never-stuck law), so no orphan landing.
+    if not vm.input_buffer:
+        widget = vm.model.settings.widget_for(ch)
+        if widget:
+            vm.open_widget(widget); return
     # the palette key (``/``) ENGAGES the palette ONLY from an EMPTY buffer -- it is the deliberate way INTO
     # command entry. Once the operator is typing free text, ``/`` is just a literal character.
     command = vm.model.settings.command_for(key_char)

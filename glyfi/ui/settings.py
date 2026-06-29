@@ -128,7 +128,14 @@ class AppSettings:
     title: str = DEFAULT_TITLE
     regions: Tuple[Region, ...] = field(default_factory=_default_regions)
     keys: Dict[str, str] = field(default_factory=_default_keys)
+    #: NAVIGATION shortcuts: a raw key CODE (e.g. ``curses.KEY_F2``) -> a registered WIDGET NAME to open from the
+    #: start screen (NORMAL, empty input). Lets the operator jump straight to any view; Esc always unwinds back.
+    widget_keys: Dict[int, str] = field(default_factory=dict)
 
     def command_for(self, key: str) -> str:
         """The command bound to ``key``, or the empty string if the key is unbound (the View ignores it)."""
         return self.keys.get(key, '')
+
+    def widget_for(self, code: int) -> str:
+        """The widget NAME a raw key code opens from the start screen, or '' if the code is unbound."""
+        return self.widget_keys.get(code, '')
